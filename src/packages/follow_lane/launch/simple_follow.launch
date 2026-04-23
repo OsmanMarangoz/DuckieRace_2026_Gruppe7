@@ -1,0 +1,23 @@
+<launch>
+  <!-- vehicle name (env used by the nodes) -->
+  <arg name="vehicle_name" default="myduckie"/>
+  <env name="VEHICLE_NAME" value="$(arg vehicle_name)"/>
+
+  <!-- Lane detector (provides /<VEHICLE_NAME>/detect/lane) -->
+  <node pkg="follow_lane" type="detect_lane_node.py" name="detect_lane_node" output="screen"/>
+
+  <!-- PID-based line follower (subscribes detect/lane and publishes cmd) -->
+  <node pkg="follow_lane" type="spurhalter.py" name="spurhalter" output="screen">
+    <param name="kp" value="1.0"/>
+    <param name="ki" value="0.1"/>
+    <param name="kd" value="0.5"/>
+    <param name="max_v" value="0.4"/>
+    <param name="min_v" value="0.05"/>
+    <param name="max_omega" value="2.0"/>
+    <param name="search_omega" value="0.5"/>
+    <param name="max_error_threshold" value="1.5"/>
+  </node>
+
+  <!-- Optional: switch control node to publish mode (Lane/Obstacle) -->
+  <node pkg="follow_lane" type="switch_control_node.py" name="switch_control_node" output="screen"/>
+</launch>
