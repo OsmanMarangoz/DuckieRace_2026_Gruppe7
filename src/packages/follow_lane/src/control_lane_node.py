@@ -14,7 +14,7 @@ class ControlLaneNode:
         rospy.init_node(node_name)
         self.enable = True
         self.lastError = 0
-        self.integral =0
+        self.integral = 0
         self.v = 0.0
         self.a = 0.0
         self.correction = 0

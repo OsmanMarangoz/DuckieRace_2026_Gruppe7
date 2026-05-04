@@ -22,7 +22,7 @@ class ControlLaneNode:
         # Red line stop state
         self._red_stop_active = False       # True while we are in the 2s stop pause
         self._red_stop_until = None         # rospy.Time when we may resume
-        self._RED_PIXEL_THRESHOLD = 400     # tune this to your track / lighting
+        self._RED_PIXEL_THRESHOLD = 20000     # tune this to your track / lighting
         self._RED_COOLDOWN = 5.0            # seconds before a second stop is allowed
         self._last_red_stop_time = rospy.Time(0)  # avoid repeated triggers
 
@@ -85,7 +85,7 @@ class ControlLaneNode:
 
     # error between 1 and -1
     def cbFollowLane(self, error):
-        print(f'received message. enabled : {self.enable}')
+        #print(f'received message. enabled : {self.enable}')
         error = error.data
 
         P = self.kp * error
@@ -102,7 +102,11 @@ class ControlLaneNode:
         self.lastError = error
 
         # Slow down when turning (larger error = more curve = slower)
+        #self.v = self.MAX_VEL * (1 - min(abs(error), 1.0))
         self.v = self.MAX_VEL * (1 - min(abs(error), 1.0))
+
+        print(f'error = {abs(error)}')
+        print(f'self.v = { self.v}')
         self.a = correction
 
     def _publish_stop(self):
@@ -127,6 +131,7 @@ class ControlLaneNode:
                 if self._red_stop_active:
                     if now < self._red_stop_until:
                         # Still within the 2-second pause — keep publishing stop
+                        rospy.sleep(2)
                         self._publish_stop()
                         rate.sleep()
                         continue
