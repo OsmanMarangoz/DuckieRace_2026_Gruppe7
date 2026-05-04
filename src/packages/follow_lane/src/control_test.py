@@ -16,12 +16,13 @@ class ControlLaneNode:
         self.lastError = 0
         self.integral = 0
         self.a = 0
+        self.v = 0
         self.correction = 0
 
         # Red line stop state
         self.red_line_detected = False
         self.red_stop_time     = None
-        self.red_stop_duration = rospy.Duration(10.0)  # stop for 2 seconds then resume
+        self.red_stop_duration = rospy.Duration(2.0)  # stop for 2 seconds then resume
         self.RED_EDGE_THRESHOLD = 50
 
         self._vehicle_name = os.environ['VEHICLE_NAME']
@@ -108,10 +109,10 @@ class ControlLaneNode:
                 twist.header.stamp = rospy.Time.now()
 
                 if self.isStoppedForRed():
-                    twist.v     = 0.0
+                    twist.v = 0.0
                     twist.omega = 0.0
                 else:
-                    twist.v     = self.v
+                    twist.v = self.v
                     twist.omega = self.a
 
                 self.pub_cmd_vel.publish(twist)
