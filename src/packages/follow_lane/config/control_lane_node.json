@@ -4,8 +4,8 @@
     "pid":{
         "p": {"default": 12.0, "min": 0.0, "max": 20.0},
         "i": {"default": 0.0, "min": 0.0, "max": 10.0},
-        "d": {"default": 1.1, "min": 0.0, "max": 10.0},
-        "max_vel": {"default": 0.5, "min": 0.0, "max": 2.0}
+        "d": {"default": 1.2, "min": 0.0, "max": 10.0},
+        "max_vel": {"default": 0.5, "min": 0.0, "max": 0.5}
     }
 }
-}
+}   

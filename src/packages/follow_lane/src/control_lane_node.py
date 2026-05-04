@@ -64,10 +64,6 @@ class ControlLaneNode:
         
         correction = P + I + D
 
-        #max_omega = 2.0
-        #correction = max(-max_omega, min(max_omega, correction))
-
-
         self.lastError = error
 
         # Slow down when turning (larger error = more curve = slower)

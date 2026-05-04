@@ -128,14 +128,15 @@ class DetectLaneNode:
         img = self.crop_img(cv_image)
 
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
 
         mask_yellow = cv2.inRange(hsv,
                            (self.hue_yellow_l,self.saturation_yellow_l, self.lightness_yellow_l),
                            (self.hue_yellow_h,self.saturation_yellow_h, self.lightness_yellow_h),)
 
-        mask_white = cv2.inRange(hsv,
-                           (self.hue_white_l,self.saturation_white_l, self.lightness_white_l),
-                           (self.hue_white_h,self.saturation_white_h, self.lightness_white_h),)
+        mask_white = cv2.inRange(hls,
+                           (self.hue_white_l,self.lightness_white_l, self.saturation_white_l),
+                           (self.hue_white_h,self.lightness_white_h, self.saturation_white_h),)
 
         mask_red1 = cv2.inRange(hsv,
             (self.hue_red_l, self.saturation_red_l, self.lightness_red_l),

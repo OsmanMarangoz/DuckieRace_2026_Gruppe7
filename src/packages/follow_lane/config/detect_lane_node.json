@@ -28,12 +28,12 @@
     },
 
     "white":{
-    "hh": {"default": 120, "min": 0, "max": 255},
+    "hh": {"default": 255, "min": 0, "max": 255},
     "hl": {"default": 0, "min": 0, "max": 255},
-    "sh": {"default": 35, "min": 0, "max": 255},    
+    "sh": {"default": 94, "min": 0, "max": 255},    
     "sl": {"default": 0, "min": 0, "max": 255},
     "vh": {"default": 255, "min": 0, "max": 255},
-    "vl": {"default": 160, "min": 0, "max": 255}
+    "vl": {"default": 155, "min": 0, "max": 255}
     },
     "red":{
     "hl": { "default": 0 },
