@@ -50,7 +50,7 @@ class ControlLaneNode:
         print(f'received message. enabled : {self.enable}')
         error = error.data
 
-        # PID controller
+        # PID
         P = self.kp * error
 
         self.integral += error
@@ -60,10 +60,10 @@ class ControlLaneNode:
         D = self.kd * derivative
 
         correction = P + I + D
-
         self.lastError = error
 
-        self.v = self.MAX_VEL
+        # Slow down when turning (larger error = more curve = slower)
+        self.v = self.MAX_VEL * (1 - min(abs(error), 1.0))
         self.a = correction
 
     def fnShutDown(self):
@@ -83,7 +83,7 @@ class ControlLaneNode:
                 twist.omega = self.a
                 self.pub_cmd_vel.publish(twist)
 
-                rate.sleep()
+            rate.sleep()
 
 if __name__ == '__main__':
     # create the node
