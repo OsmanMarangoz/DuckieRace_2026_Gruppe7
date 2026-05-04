@@ -18,6 +18,12 @@ class ControlLaneNode:
         self.a = 0
         self.correction = 0
 
+        # Red line stop state
+        self.red_line_detected = False
+        self.red_stop_time     = None
+        self.red_stop_duration = rospy.Duration(10.0)  # stop for 2 seconds then resume
+        self.RED_EDGE_THRESHOLD = 50
+
         self._vehicle_name = os.environ['VEHICLE_NAME']
         util.init_parameters(node_name, self.cbUpdateParameters)
 
@@ -33,13 +39,27 @@ class ControlLaneNode:
         red_line_topic = f"/{self._vehicle_name}/detect/red_line"
         self.sub_red_line = rospy.Subscriber(red_line_topic, Float64, self.cbRedLine, queue_size=1)
 
-        # Red line stop state
-        self.red_line_detected = False
-        self.red_stop_time     = None
-        self.red_stop_duration = rospy.Duration(10.0)  # stop for 2 seconds then resume
-        self.RED_EDGE_THRESHOLD = 50
 
         rospy.on_shutdown(self.fnShutDown)
+
+    def cbRedLine(self, msg):
+        if msg.data >= self.RED_EDGE_THRESHOLD:
+            if not self.red_line_detected:
+                rospy.loginfo(f"Red line detected! Edge pixels: {msg.data}. Stopping.")
+                self.red_line_detected = True
+                self.red_stop_time     = rospy.Time.now()
+
+    def isStoppedForRed(self):
+        if not self.red_line_detected:
+            return False
+        elapsed = rospy.Time.now() - self.red_stop_time
+        if elapsed < self.red_stop_duration:
+            return True
+        else:
+            # Stop duration passed — resume and reset
+            self.red_line_detected = False
+            return False
+
 
     def cbControl(self,msg):
         if msg.data == ControlType.Lane.value:
