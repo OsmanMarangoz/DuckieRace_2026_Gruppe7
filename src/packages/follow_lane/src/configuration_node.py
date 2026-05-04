@@ -14,8 +14,8 @@ class ConfigurationNode:
     def __init__(self, node_name):
         rospy.init_node(node_name)
         self._vehicle_name = os.environ['VEHICLE_NAME']
-        
-        
+
+
         self.config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'config'))
         self.update_topic = f'/{self._vehicle_name}/update_parameters'
         self.publisher = rospy.Publisher(self.update_topic, String, queue_size=1)
@@ -61,10 +61,10 @@ class ConfigurationNode:
         if self.image_subscriber:
             self.image_subscriber.unregister()
         topic = topic_name if topic_name.startswith(f'/{self._vehicle_name}/') else f'/{self._vehicle_name}{topic_name}'
-        
+
         print(f'changing image topic to {topic}')
         self.image_subscriber = rospy.Subscriber(topic, CompressedImage, self.update_image, queue_size=1)
-        
+
 
     def rebuild_group_menu(self):
         groups = list(self.parameters.keys())
@@ -100,7 +100,7 @@ class ConfigurationNode:
 
     def change_group(self, *_):
         self.rebuild_sliders()
-   
+
     def update_image(self, msg):
         np_arr = np.frombuffer(msg.data, np.uint8)
         cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)

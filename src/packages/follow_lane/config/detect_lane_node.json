@@ -33,6 +33,14 @@
     "sl": {"default": 0, "min": 0, "max": 255},
     "vh": {"default": 255, "min": 0, "max": 255},
     "vl": {"default": 161, "min": 0, "max": 255}
+    },
+    "red":{
+    "hl": { "default": 0 },
+    "hh": { "default": 10 },
+    "sl": { "default": 100 },
+    "sh": { "default": 255 },
+    "vl": { "default": 100 },
+    "vh": { "default": 255 }
     }
 }
 }

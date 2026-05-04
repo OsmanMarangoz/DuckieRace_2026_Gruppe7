@@ -33,8 +33,6 @@ class DetectLaneNode:
         self.pub_debug_lane = rospy.Publisher(f'/{self._vehicle_name}/debug/lane_croped',CompressedImage,queue_size=1)
         self.pub_debug_white = rospy.Publisher(f'/{self._vehicle_name}/debug/lane_white',CompressedImage,queue_size=1)
         self.pub_debug_yellow = rospy.Publisher(f'/{self._vehicle_name}/debug/lane_yellow',CompressedImage,queue_size=1)
-        self.pub_red_line = rospy.Publisher(f'/{self._vehicle_name}/detect/red_line', Float64, queue_size=1)
-        self.pub_debug_red = rospy.Publisher(f'/{self._vehicle_name}/debug/lane_red', CompressedImage, queue_size=1)
 
 
     def cbUpdateParameters(self, parameters):
@@ -54,14 +52,6 @@ class DetectLaneNode:
         self.lightness_yellow_l = parameters["yellow"]["vl"]["default"]
         self.lightness_yellow_h = parameters["yellow"]["vh"]["default"]
 
-        # Add red line parameters
-        self.hue_red_l = parameters["red"]["hl"]["default"]
-        self.hue_red_h = parameters["red"]["hh"]["default"]
-        self.saturation_red_l = parameters["red"]["sl"]["default"]
-        self.saturation_red_h = parameters["red"]["sh"]["default"]
-        self.lightness_red_l = parameters["red"]["vl"]["default"]
-        self.lightness_red_h = parameters["red"]["vh"]["default"]
-
         # Update perspective transform points
         self.top_left_x = parameters["crop_image"]["top_left_x"]["default"]
         self.top_left_y = parameters["crop_image"]["top_left_y"]["default"]
@@ -72,10 +62,19 @@ class DetectLaneNode:
         self.bottom_right_x = parameters["crop_image"]["bottom_right_x"]["default"]
         self.bottom_right_y = parameters["crop_image"]["bottom_right_y"]["default"]
 
-    def get_red_edge_count(self, mask):
-        grad = cv2.Sobel(mask, cv2.CV_16S, 1, 0, ksize=3, scale=1, delta=0, borderType=cv2.BORDER_DEFAULT)
-        _, th = cv2.threshold(grad, 127, 255, cv2.THRESH_BINARY)
-        return int(np.count_nonzero(th))
+    def clean_mask(self, mask, min_size=150):
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  kernel)  # remove spikes first
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)  # then bridge gaps
+
+        num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+        clean = np.zeros_like(mask)
+        for i in range(1, num_labels):
+            if stats[i, cv2.CC_STAT_AREA] >= min_size:
+                clean[labels == i] = 255
+        return clean
 
     def crop_img(self,img):
         img = img.copy()
@@ -90,6 +89,7 @@ class DetectLaneNode:
 
         M = cv2.getPerspectiveTransform(pts1,pts2)
         return cv2.warpPerspective(img,M,(self._crop_im_size,self._crop_im_size))
+
 
     def get_x_for_driving(self, mask, distance, no_lane_value, left_line):
         grad = cv2.Sobel(mask, cv2.CV_16S, 1, 0, ksize=3, scale=1, delta=0, borderType=cv2.BORDER_DEFAULT)
@@ -137,21 +137,8 @@ class DetectLaneNode:
                            (self.hue_white_l,self.saturation_white_l, self.lightness_white_l),
                            (self.hue_white_h,self.saturation_white_h, self.lightness_white_h),)
 
-        mask_red1 = cv2.inRange(hsv,
-            (self.hue_red_l, self.saturation_red_l, self.lightness_red_l),
-            (self.hue_red_h, self.saturation_red_h, self.lightness_red_h))
-        mask_red2 = cv2.inRange(hsv,
-            (170, self.saturation_red_l, self.lightness_red_l),
-            (180, self.saturation_red_h, self.lightness_red_h))
-        mask_red = cv2.bitwise_or(mask_red1, mask_red2)
-
-        # Publish red edge pixel count to control node
-        red_edge_count = self.get_red_edge_count(mask_red)
-        msg_red = Float64()
-        msg_red.data = float(red_edge_count)
-        self.pub_red_line.publish(msg_red)
-        print(f"Red edge count: {red_edge_count}")
-
+        mask_white  = self.clean_mask(mask_white,  min_size=150) # size von pixel gruppen die erkennt werden sollen hier einstellen.
+        mask_yellow = self.clean_mask(mask_yellow, min_size=150)
 
         white_alternative = int(len(img[0]) * 0.95)
         yellow_alternative = int(len(img[0]) * 0.05)
@@ -186,8 +173,6 @@ class DetectLaneNode:
 
         self.debug_img_white = mask_white
         self.debug_img_yellow = mask_yellow
-
-        self.debu_g_img_red = mask_red
 
 
         image = cv2.circle(img,(int(lane_center),int(len(img) / 2)),3,(255,0,0))
@@ -246,13 +231,6 @@ class DetectLaneNode:
                 debug_msg.format = "jpeg"
                 debug_msg.data = np.array(cv2.imencode('.jpg', self.debug_img_yellow)[1]).tobytes()
                 self.pub_debug_yellow.publish(debug_msg)
-
-            if self.pub_debug_red.get_num_connections() > 0:
-                debug_msg = CompressedImage()
-                debug_msg.header.stamp = rospy.Time.now()
-                debug_msg.format = "jpeg"
-                debug_msg.data = np.array(cv2.imencode('.jpg', self.debug_img_red)[1]).tobytes()
-                self.pub_debug_red.publish(debug_msg)
 
             rate.sleep()
 
