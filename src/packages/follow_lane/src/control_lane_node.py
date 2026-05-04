@@ -13,6 +13,10 @@ class ControlLaneNode:
     def __init__(self,node_name):
         rospy.init_node(node_name)
         self.enable = True
+        self.lastError = 0
+        self.integral = 0
+        self.a = 0
+        self.correction = 0
 
         self._vehicle_name = os.environ['VEHICLE_NAME']
         util.init_parameters(node_name, self.cbUpdateParameters)
@@ -25,16 +29,13 @@ class ControlLaneNode:
 
         control_change_topic = f"/{self._vehicle_name}/switch/control"
         self.sub_control = rospy.Subscriber(control_change_topic, Int32, self.cbControl , queue_size = 1)
- 
-        self.lastError = 0
-        self.v = 0
-        self.a = 0
+
         rospy.on_shutdown(self.fnShutDown)
 
     def cbControl(self,msg):
         if msg.data == ControlType.Lane.value:
             self.enable = True
-        
+
         else:
             self.enable = False
 
@@ -49,16 +50,27 @@ class ControlLaneNode:
         print(f'received message. enabled : {self.enable}')
         error = error.data
 
-        #Todo Write own code for PID controller here
-        self.v = 0
-        self.a = 0                
-        
+        # PID controller
+        P = self.kp * error
+
+        self.integral += error
+        I = self.ki * self.integral
+
+        derivative = error - self.lastError
+        D = self.kd * derivative
+
+        correction = P + I + D
+
+        self.lastError = error
+
+        self.v = self.MAX_VEL
+        self.a = correction
 
     def fnShutDown(self):
         rospy.loginfo("Shutting down. cmd_vel will be 0")
 
         twist = Twist2DStamped(v=0.0, omega=0.0)
-        self.pub_cmd_vel.publish(twist) 
+        self.pub_cmd_vel.publish(twist)
 
     def run(self):
         rate = rospy.Rate(10)
@@ -66,7 +78,7 @@ class ControlLaneNode:
             if self.enable:
                 twist = Twist2DStamped()
                 twist.header.stamp = rospy.Time.now()
-                
+
                 twist.v = self.v
                 twist.omega = self.a
                 self.pub_cmd_vel.publish(twist)
