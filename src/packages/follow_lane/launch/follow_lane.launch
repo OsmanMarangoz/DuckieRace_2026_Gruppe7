@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+
+    <!-- Detect Lane Node: processes camera image and detects lane/red line -->
+    <node
+        name="detect_lane_node"
+        pkg="follow_lane"
+        type="detect_lane_node.py"
+        output="screen" />
+
+    <!-- Switch Control Node: handles control logic based on red line detection -->
+    <node
+        name="switch_control_node"
+        pkg="follow_lane"
+        type="switch_control_node.py"
+        output="screen" />
+
+    <!-- Control Lane Node: PID controller for lane following -->
+    <node
+        name="control_lane_node"
+        pkg="follow_lane"
+        type="control_lane_node.py"        roslaunch follow_lane follow_lane.launch
+        output="screen" />
+
+</launch>

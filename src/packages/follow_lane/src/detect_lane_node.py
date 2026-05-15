@@ -72,10 +72,8 @@ class DetectLaneNode:
         self.bottom_right_x = parameters["crop_image"]["bottom_right_x"]["default"]
         self.bottom_right_y = parameters["crop_image"]["bottom_right_y"]["default"]
 
-    def get_red_edge_count(self, mask):
-        grad = cv2.Sobel(mask, cv2.CV_16S, 1, 0, ksize=3, scale=1, delta=0, borderType=cv2.BORDER_DEFAULT)
-        _, th = cv2.threshold(grad, 127, 255, cv2.THRESH_BINARY)
-        return int(np.count_nonzero(th))
+    def get_red_pixel_count(self, mask):
+        return int(np.count_nonzero(mask))
 
     def crop_img(self,img):
         img = img.copy()
@@ -110,6 +108,18 @@ class DetectLaneNode:
         else:
             return no_lane_value
 
+    def get_x_center_for_color(self, mask, distance):
+        """
+        Returns the x-center of the detected color pixels at the given row distance.
+        Returns None if no pixels are found.
+        """
+        row_start = max(0, distance - 50)
+        row_end = min(mask.shape[0], distance + 50)
+        roi = mask[row_start:row_end, :]
+        cols = np.where(roi > 0)[1]
+        if len(cols) > 0:
+            return int(np.median(cols))
+        return None
 
     def cbFindLane(self, image_msg):
 
@@ -121,22 +131,21 @@ class DetectLaneNode:
             return
 
         self.is_running = True
-        self.conunter = 0
+        self.counter = 0
 
         np_arr = np.frombuffer(image_msg.data, np.uint8)
         cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
         img = self.crop_img(cv_image)
 
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
 
         mask_yellow = cv2.inRange(hsv,
                            (self.hue_yellow_l,self.saturation_yellow_l, self.lightness_yellow_l),
                            (self.hue_yellow_h,self.saturation_yellow_h, self.lightness_yellow_h),)
 
-        mask_white = cv2.inRange(hls,
-                           (self.hue_white_l,self.lightness_white_l, self.saturation_white_l),
-                           (self.hue_white_h,self.lightness_white_h, self.saturation_white_h),)
+        mask_white = cv2.inRange(hsv,
+                           (self.hue_white_l,self.saturation_white_l, self.lightness_white_l),
+                           (self.hue_white_h,self.saturation_white_h, self.lightness_white_h),)
 
         mask_red1 = cv2.inRange(hsv,
             (self.hue_red_l, self.saturation_red_l, self.lightness_red_l),
@@ -146,12 +155,13 @@ class DetectLaneNode:
             (180, self.saturation_red_h, self.lightness_red_h))
         mask_red = cv2.bitwise_or(mask_red1, mask_red2)
 
-        # Publish red edge pixel count to control node
-        red_edge_count = self.get_red_edge_count(mask_red)
+        # Publish red pixel count — only bottom 10% of image (close range)
+        bottom_start = int(len(img) * 0.9)
+        red_pixel_count = self.get_red_pixel_count(mask_red[bottom_start:])
         msg_red = Float64()
-        msg_red.data = float(red_edge_count)
+        msg_red.data = float(red_pixel_count)
         self.pub_red_line.publish(msg_red)
-        print(f"Red edge count: {red_edge_count}")
+        rospy.loginfo(f"Red pixel count: {red_pixel_count}")
 
 
         white_alternative = int(len(img[0]) * 0.95)
@@ -174,8 +184,11 @@ class DetectLaneNode:
         msg_error.data = 1-(lane_center / len(img) * 2)
 
         self.pub_lane.publish(msg_error)
-        print(f"Lane error: {msg_error.data} range [-1,1]")
+        rospy.loginfo(f"Lane error: {msg_error.data} range [-1,1]")
 
+        # Detect red center position in lower quadrant (same row as white/yellow circles)
+        detection_row = int(len(img) * 0.95)
+        center_red = self.get_x_center_for_color(mask_red, detection_row)
 
         # saving for debug
         self.img = img
@@ -184,11 +197,11 @@ class DetectLaneNode:
         self.yellow_alternative = yellow_alternative
         self.center_white = center_white
         self.center_yellow = center_yellow
+        self.center_red = center_red        # FIX: was missing, caused AttributeError in run_debug
 
         self.debug_img_white = mask_white
         self.debug_img_yellow = mask_yellow
-
-        self.debu_g_img_red = mask_red
+        self.debug_img_red = mask_red       # FIX: was "debu_g_img_red" (typo)
 
 
         image = cv2.circle(img,(int(lane_center),int(len(img) / 2)),3,(255,0,0))
@@ -201,7 +214,9 @@ class DetectLaneNode:
         image = cv2.circle(image, (int(center_white), int(len(img) * 0.75)),  5,(255,255,255))
         image = cv2.circle(image, (int(center_yellow), int(len(img) * 0.75)), 5,(0,255,255))
 
-
+        # Draw red circle in lower quadrant if red pixels were detected
+        if center_red is not None:
+            image = cv2.circle(image, (center_red, detection_row), 5, (0, 0, 255))
 
         cv2.imshow('lane detection', image)
         self.is_running = False
@@ -228,6 +243,11 @@ class DetectLaneNode:
                 debug_img = cv2.circle(debug_img, (int(self.center_white), int(len(debug_img) * 0.75)),  5,(255,255,255))
                 debug_img = cv2.circle(debug_img, (int(self.center_yellow), int(len(debug_img) * 0.75)), 5,(0,255,255))
 
+                # Draw red circle in debug image if red was detected
+                if self.center_red is not None:
+                    detection_row = int(len(debug_img) * 0.75)
+                    debug_img = cv2.circle(debug_img, (self.center_red, detection_row), 5, (0, 0, 255))
+
                 debug_msg = CompressedImage()
                 debug_msg.header.stamp = rospy.Time.now()
                 debug_msg.format = "jpeg"
@@ -252,6 +272,7 @@ class DetectLaneNode:
                 debug_msg = CompressedImage()
                 debug_msg.header.stamp = rospy.Time.now()
                 debug_msg.format = "jpeg"
+                # FIX: was "self.debug_img_red" referencing the typo'd attribute name
                 debug_msg.data = np.array(cv2.imencode('.jpg', self.debug_img_red)[1]).tobytes()
                 self.pub_debug_red.publish(debug_msg)
 
