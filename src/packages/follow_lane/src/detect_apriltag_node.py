@@ -30,6 +30,7 @@ class DetectAprilTagNode:
         self.is_running = False
         self.counter = 0
         self.display_image = None
+        self._last_detected_id = -1  # Remember last detected tag ID
 
         util.init_parameters(node_name, self.cbUpdateParameters)
 
@@ -104,14 +105,16 @@ class DetectAprilTagNode:
             cv2.putText(cv_image, f"ID:{tag_id}", (cx - 20, cy - 15),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
-            rospy.loginfo(f"AprilTag detected: ID={tag_id}  center=({cx}, {cy})")
+            #rospy.loginfo(f"AprilTag detected: ID={tag_id}  center=({cx}, {cy})")
 
-        if not results:
-            rospy.loginfo("No AprilTag detected")
+        #if not results:
+        #    rospy.loginfo("No AprilTag detected")
 
-        # Publish tag ID (-1 if nothing detected)
+        # Publish tag ID (keep last detected ID if nothing detected now)
+        if results:
+            self._last_detected_id = results[0]["id"]
         msg_id = Int32()
-        msg_id.data = results[0]["id"] if results else -1
+        msg_id.data = self._last_detected_id
         self.pub_tag_id.publish(msg_id)
 
         # Publish full JSON info
@@ -128,11 +131,13 @@ class DetectAprilTagNode:
             self.pub_debug.publish(debug_msg)
 
         self.display_image = cv_image
+        #cv_image = cv2.resize(cv_image, (1280, 960))  # 2x scale
         self.is_running = False
 
     def run(self):
         rate = rospy.Rate(10)
         cv2.namedWindow('apriltag detection', cv2.WINDOW_NORMAL)
+        cv2.resizeWindow('apriltag detection', 1280, 960)  # Set initial size
 
         while not rospy.is_shutdown():
             if self.display_image is not None:

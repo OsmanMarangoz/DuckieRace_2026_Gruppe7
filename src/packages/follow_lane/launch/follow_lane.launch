@@ -8,6 +8,13 @@
         type="detect_lane_node.py"
         output="screen" />
 
+    <!-- Detect AprilTag Node: detects AprilTags from camera image -->
+    <node
+        name="detect_apriltag_node"
+        pkg="follow_lane"
+        type="detect_apriltag_node.py"
+        output="screen" />
+
     <!-- Switch Control Node: handles control logic based on red line detection -->
     <node
         name="switch_control_node"
@@ -20,6 +27,13 @@
         name="control_lane_node"
         pkg="follow_lane"
         type="control_lane_node.py"
+        output="screen" />
+
+    <!-- Decision Node: makes decisions based on detected AprilTags -->
+    <node
+        name="decision_node"
+        pkg="follow_lane"
+        type="decision_node.py"
         output="screen" />
 
 </launch>
