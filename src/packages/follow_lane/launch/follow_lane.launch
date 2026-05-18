@@ -19,7 +19,7 @@
     <node
         name="control_lane_node"
         pkg="follow_lane"
-        type="control_lane_node.py"        roslaunch follow_lane follow_lane.launch
+        type="control_lane_node.py"
         output="screen" />
 
 </launch>

@@ -66,8 +66,8 @@ class ControlLaneNode:
         #self.v = self.MAX_VEL * (1 - min(abs(error), 1.0))
         self.v = self.MAX_VEL * (1 - min(abs(error), 1.0))
 
-        print(f'error = {abs(error)}')
-        print(f'self.v = { self.v}')
+        #print(f'error = {abs(error)}')
+        #print(f'self.v = { self.v}')
         self.a = correction
 
     def fnShutDown(self):

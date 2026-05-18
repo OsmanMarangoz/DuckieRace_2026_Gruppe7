@@ -16,11 +16,29 @@ RUN apt-get update && apt-get install -y \
     ros-noetic-compressed-image-transport \
     ros-noetic-camera-info-manager \
     sudo \
+    cmake \
+    build-essential \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxrender1 \
+    libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN sed -i 's/hosts:.*/hosts:          files mdns4_minimal [NOTFOUND=return] dns/' /etc/nsswitch.conf
 
 RUN pip3 install numpy opencv-python
+
+# Build and install apriltag from source (supports tagStandard52h13 and all families)
+RUN git clone https://github.com/AprilRobotics/apriltag.git /tmp/apriltag_src && \
+    cd /tmp/apriltag_src && \
+    cmake -B build -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build build && \
+    cmake --install build && \
+    ldconfig && \
+    mv /usr/local/lib/python3.8/site-packages/apriltag..so \
+       /usr/local/lib/python3.8/site-packages/apriltag.so && \
+    rm -rf /tmp/apriltag_src
 
 ARG USERNAME=ros
 ARG USER_UID=1000
@@ -31,8 +49,11 @@ RUN groupadd --gid $USER_GID $USERNAME \
     && echo "$USERNAME ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
 
+
 RUN echo "source /opt/ros/noetic/setup.bash" >> /home/$USERNAME/.bashrc \
-    && echo "source /workspace/devel/setup.bash 2>/dev/null || true" >> /home/$USERNAME/.bashrc
+    && echo "source /workspace/devel/setup.bash 2>/dev/null || true" >> /home/$USERNAME/.bashrc \
+    && echo "export PYTHONPATH=/usr/local/lib/python3.8/site-packages:\$PYTHONPATH" >> /home/$USERNAME/.bashrc
+
 
 USER $USERNAME
 WORKDIR /workspace

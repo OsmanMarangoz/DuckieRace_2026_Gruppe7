@@ -1,0 +1,11 @@
+{
+  "parameters": {
+    "camera": {
+      "fx": {"default": 336.0},
+      "fy": {"default": 336.0},
+      "cx": {"default": 320.0},
+      "cy": {"default": 240.0},
+      "tag_size": {"default": 0.065}
+    }
+  }
+}
