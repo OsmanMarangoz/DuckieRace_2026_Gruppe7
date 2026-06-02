@@ -6,7 +6,7 @@
   "runArgs": [
     "--network=host",
     "--privileged",
-    "--add-host=dorette.local:192.168.90.186"
+    "--add-host=dorette.local:192.168.90.185"
   ],
   "containerEnv": {
     "DISPLAY": "${localEnv:DISPLAY}",

@@ -31,6 +31,8 @@ class DetectAprilTagNode:
         self.counter = 0
         self.display_image = None
         self._last_detected_id = -1  # Remember last detected tag ID
+        self.tag_timeout = 3.0                       # NEU: default in Sekunden
+        self._last_detection_time = rospy.Time(0)
 
         util.init_parameters(node_name, self.cbUpdateParameters)
 
@@ -44,7 +46,7 @@ class DetectAprilTagNode:
         self.pub_tag_info = rospy.Publisher(f'/{self._vehicle_name}/apriltag/detections', String, queue_size=1)
 
         # Debug image with tag overlays
-        self.pub_debug = rospy.Publisher(f'/{self._vehicle_name}/apriltag/debug', CompressedImage, queue_size=1)
+        self.pub_debug = rospy.Publisher(f'/{self._vehicle_name}/apriltag/debug/compressed', CompressedImage, queue_size=1)
 
         # C extension API: apriltag.apriltag("familyname")
         self.detector = apriltag.apriltag("tagStandard52h13")
@@ -58,6 +60,7 @@ class DetectAprilTagNode:
             self.cx = parameters["camera"]["cx"]["default"]
             self.cy = parameters["camera"]["cy"]["default"]
             self.tag_size = parameters["camera"]["tag_size"]["default"]
+            self.tag_timeout = parameters["detection"]["tag_timeout"]["default"]
         except (KeyError, TypeError):
             pass  # use defaults set in __init__
 
@@ -113,6 +116,13 @@ class DetectAprilTagNode:
         # Publish tag ID (keep last detected ID if nothing detected now)
         if results:
             self._last_detected_id = results[0]["id"]
+            self._last_detection_time = rospy.Time.now()   # NEU
+        else:
+            # NEU: Timeout-Check
+            elapsed = (rospy.Time.now() - self._last_detection_time).to_sec()
+            if elapsed > self.tag_timeout:
+                self._last_detected_id = -1
+
         msg_id = Int32()
         msg_id.data = self._last_detected_id
         self.pub_tag_id.publish(msg_id)
@@ -130,22 +140,23 @@ class DetectAprilTagNode:
             debug_msg.data = np.array(cv2.imencode('.jpg', cv_image)[1]).tobytes()
             self.pub_debug.publish(debug_msg)
 
-        self.display_image = cv_image
+        #self.display_image = cv_image
         #cv_image = cv2.resize(cv_image, (1280, 960))  # 2x scale
         self.is_running = False
 
     def run(self):
         rate = rospy.Rate(10)
-        cv2.namedWindow('apriltag detection', cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('apriltag detection', 1280, 960)  # Set initial size
+        # cv2.namedWindow('apriltag detection', cv2.WINDOW_NORMAL)
+        # cv2.resizeWindow('apriltag detection', 1280, 960)  # Set initial size
 
         while not rospy.is_shutdown():
             if self.display_image is not None:
-                cv2.imshow('apriltag detection', self.display_image)
-            cv2.waitKey(1)
+                # cv2.imshow('apriltag detection', self.display_image)
+                pass
+            # cv2.waitKey(1)
             rate.sleep()
 
-        cv2.destroyAllWindows()
+        # cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':

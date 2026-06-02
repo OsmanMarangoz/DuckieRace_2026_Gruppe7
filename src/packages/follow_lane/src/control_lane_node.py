@@ -18,6 +18,9 @@ class ControlLaneNode:
         self.v = 0.0
         self.a = 0.0
 
+        self.MAX_ERROR_JUMP = 0.4
+        self._error_initialized = False
+
         self._vehicle_name = os.environ['VEHICLE_NAME']
         util.init_parameters(node_name, self.cbUpdateParameters)
 
@@ -49,6 +52,13 @@ class ControlLaneNode:
         #print(f'received message. enabled : {self.enable}')
         error = error.data
 
+         # Outlier-Filter: physikalisch unplausible Sprünge verwerfen
+        if self._error_initialized and abs(error - self.lastError) > self.MAX_ERROR_JUMP:
+            rospy.logwarn(f"Error spike rejected: {self.lastError:.2f} -> {error:.2f}")
+            error = self.lastError  # benutze letzten guten Wert
+        self._error_initialized = True
+
+
         P = self.kp * error
 
         self.integral += error
@@ -78,17 +88,15 @@ class ControlLaneNode:
     def run(self):
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
-            twist = Twist2DStamped()
-            twist.header.stamp = rospy.Time.now()
             if self.enable:
+                twist = Twist2DStamped()
+                twist.header.stamp = rospy.Time.now()
                 twist.v = self.v
                 twist.omega = self.a
+                self.pub_cmd_vel.publish(twist)
             else:
-                twist.v = 0.0
-                twist.omega = 0.0
                 self.integral = 0
                 self.lastError = 0
-            self.pub_cmd_vel.publish(twist)
             rate.sleep()
 
 if __name__ == '__main__':

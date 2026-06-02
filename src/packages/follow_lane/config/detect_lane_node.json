@@ -1,9 +1,9 @@
 {
 "debug_image_topics":[
-    "/debug/lane_croped",
-    "/debug/lane_white",
-    "/debug/lane_yellow",
-    "/debug/lane_red"
+    "/debug/lane_croped/compressed",
+    "/debug/lane_white/compressed",
+    "/debug/lane_yellow/compressed",
+    "/debug/lane_red/compressed"
 ],
 
 "parameters":{

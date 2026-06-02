@@ -6,6 +6,9 @@
       "cx": {"default": 320.0},
       "cy": {"default": 240.0},
       "tag_size": {"default": 0.065}
+    },
+    "detection": {
+      "tag_timeout": {"default": 3.0, "min": 0.0, "max": 30.0}
     }
   }
 }
