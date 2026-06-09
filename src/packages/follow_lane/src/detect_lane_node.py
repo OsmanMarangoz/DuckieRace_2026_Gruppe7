@@ -11,6 +11,7 @@ from enum import Enum
 import yaml
 import util
 from std_srvs.srv import SetBool, SetBoolResponse
+from ultralytics import YOLO
 
 #from duckietown.dtros import DTROS, NodeType
 
@@ -21,6 +22,11 @@ class DetectLaneNode:
 
         self._vehicle_name = os.environ['VEHICLE_NAME']
         util.init_parameters(node_name, self.cbUpdateParameters)
+
+        # Load YOLOv8 segmentation model
+        model_path = "/workspace/src/packages/follow_lane/src/model/best.pt"
+        self.yolo_model = YOLO(model_path)
+        self.class_white = 2  # white line class ID
 
         self._camera_topic = f"/{self._vehicle_name}/camera_node/image/compressed"
         self.sub_image_original = rospy.Subscriber(self._camera_topic, CompressedImage, self.cbFindLane, queue_size=1)
@@ -158,35 +164,45 @@ class DetectLaneNode:
         cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
         # Write frame to video if recording is enabled
-        # if self.video_record_enable:
-        #     if self.video_writer is None:
-        #         h, w = cv_image.shape[:2]
-        #         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        #         os.makedirs(os.path.dirname(self.video_out_path), exist_ok=True)
-        #         self.video_writer = cv2.VideoWriter(
-        #             self.video_out_path, fourcc, self.fps, (w, h)
-        #         )
-        #         if self.video_writer.isOpened():
-        #             print(f"[VIDEO] Recording: {w}x{h} @ {self.fps}fps -> {self.video_out_path}")
-        #         else:
-        #             print(f"[VIDEO] Failed to open VideoWriter at: {self.video_out_path}")
-        #             self.video_writer = None
-        #             self.video_record_enable = False
-        #
-        #     if self.video_writer is not None and self.video_writer.isOpened():
-        #         self.video_writer.write(cv_image)
+        if self.video_record_enable:
+            if self.video_writer is None:
+                h, w = cv_image.shape[:2]
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                os.makedirs(os.path.dirname(self.video_out_path), exist_ok=True)
+                self.video_writer = cv2.VideoWriter(
+                    self.video_out_path, fourcc, self.fps, (w, h)
+                )
+                if self.video_writer.isOpened():
+                    print(f"[VIDEO] Recording: {w}x{h} @ {self.fps}fps -> {self.video_out_path}")
+                else:
+                    print(f"[VIDEO] Failed to open VideoWriter at: {self.video_out_path}")
+                    self.video_writer = None
+                    self.video_record_enable = False
+
+            if self.video_writer is not None and self.video_writer.isOpened():
+                self.video_writer.write(cv_image)
 
         img = self.crop_img(cv_image)
+
+        # Run YOLO segmentation inference
+        results = self.yolo_model(img)
+
+        # Extract white line mask (class 2) from YOLO results
+        mask_white = np.zeros(img.shape[:2], dtype=np.uint8)
+        if results[0].masks is not None:
+            for idx, class_id in enumerate(results[0].boxes.cls):
+                if int(class_id) == self.class_white:
+                    mask = results[0].masks[idx].data[0].cpu().numpy()
+                    mask = (mask * 255).astype(np.uint8)
+                    # Resize mask to match input image dimensions
+                    mask = cv2.resize(mask, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_NEAREST)
+                    mask_white = cv2.bitwise_or(mask_white, mask)
 
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
         mask_yellow = cv2.inRange(hsv,
                                   (self.hue_yellow_l, self.saturation_yellow_l, self.lightness_yellow_l),
                                   (self.hue_yellow_h, self.saturation_yellow_h, self.lightness_yellow_h))
-
-        mask_white = cv2.inRange(hsv,
-                                 (self.hue_white_l, self.saturation_white_l, self.lightness_white_l),
-                                 (self.hue_white_h, self.saturation_white_h, self.lightness_white_h))
 
         mask_red1 = cv2.inRange(hsv,
                                 (self.hue_red_l, self.saturation_red_l, self.lightness_red_l),
@@ -255,10 +271,10 @@ class DetectLaneNode:
             image = cv2.circle(image, (center_red, detection_row), 5, (0, 0, 255))
 
         # Recording indicator
-        # if self.video_record_enable:
-        #     cv2.putText(image, "REC", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-        # else:
-        #     cv2.putText(image, "R=record  Q=stop", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+        if self.video_record_enable:
+            cv2.putText(image, "REC", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+        else:
+            cv2.putText(image, "R=record  Q=stop", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
 
         self.display_image = image
 
@@ -266,36 +282,36 @@ class DetectLaneNode:
 
     def fnShutDown(self):
         rospy.loginfo("Shutting down. Closing video file...")
-        # if self.video_writer is not None and self.video_writer.isOpened():
-        #     self.video_writer.release()
-        # cv2.destroyAllWindows()
+        if self.video_writer is not None and self.video_writer.isOpened():
+            self.video_writer.release()
+        cv2.destroyAllWindows()
 
     def run_debug(self):
         rospy.on_shutdown(self.fnShutDown)
         rate = rospy.Rate(10)
-        # cv2.namedWindow('lane detection', cv2.WINDOW_NORMAL)
-        # cv2.setWindowProperty('lane detection', cv2.WND_PROP_TOPMOST, 1)  # Keep window on top
+        cv2.namedWindow('lane detection', cv2.WINDOW_NORMAL)
+        cv2.setWindowProperty('lane detection', cv2.WND_PROP_TOPMOST, 1)  # Keep window on top
 
         while not rospy.is_shutdown():
 
             # Display and key handling must be on main thread
-            # if self.display_image is not None:
-            #     cv2.imshow('lane detection', self.display_image)
-            #
-            # key = cv2.waitKey(50) & 0xFF  # Increased timeout to 50ms for better responsiveness
-            # if key == ord('r') or key == ord('R'):
-            #     if not self.video_record_enable:
-            #         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            #         self.video_out_path = f"/workspace/src/videos/lane_{timestamp}.mp4"
-            #         self.video_record_enable = True
-            #         print(f"[VIDEO] Recording STARTED: {self.video_out_path}")
-            # elif key == ord('q') or key == ord('Q'):
-            #     if self.video_record_enable:
-            #         self.video_record_enable = False
-            #         if self.video_writer is not None and self.video_writer.isOpened():
-            #             self.video_writer.release()
-            #             self.video_writer = None
-            #         print(f"[VIDEO] Recording STOPPED")
+            if self.display_image is not None:
+                cv2.imshow('lane detection', self.display_image)
+
+            key = cv2.waitKey(50) & 0xFF  # Increased timeout to 50ms for better responsiveness
+            if key == ord('r') or key == ord('R'):
+                if not self.video_record_enable:
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    self.video_out_path = f"/workspace/src/videos/lane_{timestamp}.mp4"
+                    self.video_record_enable = True
+                    print(f"[VIDEO] Recording STARTED: {self.video_out_path}")
+            elif key == ord('q') or key == ord('Q'):
+                if self.video_record_enable:
+                    self.video_record_enable = False
+                    if self.video_writer is not None and self.video_writer.isOpened():
+                        self.video_writer.release()
+                        self.video_writer = None
+                    print(f"[VIDEO] Recording STOPPED")
 
             # Publish debug topics
             if hasattr(self, 'img'):
@@ -320,6 +336,12 @@ class DetectLaneNode:
                     debug_msg.format = "jpeg"
                     debug_msg.data = np.array(cv2.imencode('.jpg', debug_img)[1]).tobytes()
                     self.pub_debug_lane.publish(debug_msg)
+
+                    # Recording indicator
+                    if self.video_record_enable:
+                        cv2.putText(debug_img, "REC", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                    else:
+                        cv2.putText(debug_img, "R=record  Q=stop", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
 
                 if self.pub_debug_white.get_num_connections() > 0:
                     debug_msg = CompressedImage()
