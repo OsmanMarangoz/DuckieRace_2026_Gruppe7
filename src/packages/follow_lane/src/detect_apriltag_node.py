@@ -5,7 +5,9 @@ import rospy
 import numpy as np
 import cv2
 from sensor_msgs.msg import CompressedImage
+from std_msgs import msg
 from std_msgs.msg import Int32, String
+from switch_control_node import ControlType
 import json
 import util
 
@@ -51,7 +53,21 @@ class DetectAprilTagNode:
         # C extension API: apriltag.apriltag("familyname")
         self.detector = apriltag.apriltag("tagStandard52h13")
 
-        rospy.loginfo(f"[{node_name}] AprilTag detector ready on {self._camera_topic}")
+        self._current_action = ""
+        self.sub_action = rospy.Subscriber(
+            f'/{self._vehicle_name}/decision/action', String,
+            self.cbAction, queue_size=1)
+
+        self._current_mode = 1
+        self.sub_mode = rospy.Subscriber(
+            f'/{self._vehicle_name}/switch/control', Int32,
+            self.cbMode, queue_size=1)
+
+    def cbMode(self, msg):
+        self._current_mode = msg.data
+
+    def cbAction(self, msg):
+        self._current_action = msg.data
 
     def cbUpdateParameters(self, parameters):
         try:
@@ -132,6 +148,27 @@ class DetectAprilTagNode:
         msg_info.data = json.dumps(results)
         self.pub_tag_info.publish(msg_info)
 
+        # Mode-Label (LANE / OBSTACLE) + Farbe
+        if self._current_mode == ControlType.Lane.value:  # Lane
+            mode_text = "MODE: LANE"
+            mode_color = (0, 255, 0)      # grün
+        else:                    # Obstacle
+            mode_text = "MODE: OBSTACLE"
+            mode_color = (0, 0, 255)      # rot
+
+        cv2.putText(cv_image, mode_text, (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, mode_color, 2)
+
+        # Action (nur anzeigen wenn eine läuft)
+        if self._current_action:
+            cv2.putText(cv_image, f"ACTION: {self._current_action}",
+                        (10, 60), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7, (0, 255, 255), 2)   # gelb
+
+        # Last Tag
+        cv2.putText(cv_image, f"LAST TAG: {self._last_detected_id}",
+                    (10, 90), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7, (255, 255, 255), 2)
         # Publish debug image if anyone is subscribed
         if self.pub_debug.get_num_connections() > 0:
             debug_msg = CompressedImage()

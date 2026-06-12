@@ -5,6 +5,7 @@ from std_msgs.msg import Int32, Bool
 from duckietown_msgs.msg import Twist2DStamped
 import os
 import random
+from std_msgs.msg import String
 
 from switch_control_node import ControlType
 
@@ -39,6 +40,9 @@ class DecisionNode:
             f'/{self._vehicle_name}/switch/control', Int32,
             self.cbControlMode, queue_size=1)
 
+        self.pub_action = rospy.Publisher(
+            f'/{self._vehicle_name}/decision/action', String, queue_size=1)
+
         rospy.loginfo(f"[{node_name}] Decision node ready")
 
     def cbAprilTagID(self, msg):
@@ -64,12 +68,15 @@ class DecisionNode:
 
             # Phase 1: ECHTER Stop
             rospy.loginfo(f"Phase 1: stopping for {self.STOP_DURATION}s")
+            self.pub_action.publish(String(data="stopping"))   # <-- NEU
             self.publish_cmd(v=0.0, omega=0.0, duration=self.STOP_DURATION)
+
 
             # Phase 2: Action (oder skip wenn keine valide Tag-ID)
             if tag_id in self.ID_FUNCTIONS:
                 chosen = random.choice(self.ID_FUNCTIONS[tag_id])
                 rospy.loginfo(f"Phase 2: executing '{chosen}' for tag ID {tag_id}")
+                self.pub_action.publish(String(data=chosen))
                 if chosen == 'turn_left':
                     self.turn_left()
                 elif chosen == 'turn_right':
@@ -78,6 +85,9 @@ class DecisionNode:
                     self.move_forward()
             else:
                 rospy.loginfo(f"Phase 2: no valid tag (id={tag_id}) — skipping action")
+                self.pub_action.publish(String(data="skip"))
+
+            self.pub_action.publish(String(data=""))
 
             # Letztes v=0 publishen, damit der Roboter sauber steht bevor
             # control_lane_node übernimmt

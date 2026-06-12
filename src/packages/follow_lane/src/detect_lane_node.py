@@ -5,7 +5,7 @@ import rospy
 import numpy as np
 import cv2
 from datetime import datetime
-from std_msgs.msg import Float64, String
+from std_msgs.msg import Float64
 from sensor_msgs.msg import CompressedImage
 from enum import Enum
 import yaml
