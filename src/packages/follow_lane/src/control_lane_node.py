@@ -49,20 +49,16 @@ class ControlLaneNode:
 
     # error between 1 and -1
     def cbFollowLane(self, error):
-        #print(f'received message. enabled : {self.enable}')
         error = error.data
-
-         # Outlier-Filter: physikalisch unplausible Sprünge verwerfen
-        if self._error_initialized and abs(error - self.lastError) > self.MAX_ERROR_JUMP:
-            rospy.logwarn(f"Error spike rejected: {self.lastError:.2f} -> {error:.2f}")
-            error = self.lastError  # benutze letzten guten Wert
-        self._error_initialized = True
-
 
         P = self.kp * error
 
         self.integral += error
-
+        # Integral clamping (anti-windup)
+        self.integral = max(-5.0, min(5.0, self.integral))
+        # Integral reset on sign change
+        if (error > 0) != (self.lastError > 0):
+            self.integral = 0.0
         I = self.ki * self.integral
 
         derivative = error - self.lastError
@@ -72,12 +68,9 @@ class ControlLaneNode:
 
         self.lastError = error
 
-        # Slow down when turning (larger error = more curve = slower)
-        #self.v = self.MAX_VEL * (1 - min(abs(error), 1.0))
-        self.v = self.MAX_VEL * (1 - min(abs(error), 1.0))
-
-        #print(f'error = {abs(error)}')
-        #print(f'self.v = { self.v}')
+        # Adaptive speed: slow down in curves
+        #self.v = self.MAX_VEL
+        self.v = 0.2
         self.a = correction
 
     def fnShutDown(self):

@@ -101,13 +101,17 @@ class DecisionNode:
             rate.sleep()
 
     def turn_left(self):
-        self.publish_cmd(v=0.7, omega=2.1, duration=1.5)
+        #self.publish_cmd(v=0.7, omega=2.1, duration=1.5)
+        self.publish_cmd(v=0.2, omega=0.3, duration=1.4)
+        self.publish_cmd(v=0.2, omega=2.5, duration=1.4)
+        self.publish_cmd(v=0.2, omega=0.0, duration=0.3)
 
     def turn_right(self):
-        self.publish_cmd(v=0.25, omega=-3.4, duration=1.5)
+        self.publish_cmd(v=0.2, omega=-0.2, duration=1.2)
+        self.publish_cmd(v=0.13, omega=-3.0, duration=0.4)
 
     def move_forward(self):
-        self.publish_cmd(v=0.55, omega=0.0, duration=1.7)
+        self.publish_cmd(v=0.20, omega=0.0, duration=2.1)
 
     def run(self):
         rospy.spin()

@@ -15,7 +15,7 @@ class SwitchControlNode:
         self._vehicle_name = os.environ['VEHICLE_NAME']
 
         self._control_mode = ControlType.Lane
-        self._RED_PIXEL_THRESHOLD = 5000
+        self._RED_PIXEL_THRESHOLD = 6000
         self._RED_COOLDOWN = 1.0
         self._last_red_stop_time = rospy.Time(0)
 

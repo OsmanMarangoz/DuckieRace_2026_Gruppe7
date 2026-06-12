@@ -6,15 +6,15 @@
   "runArgs": [
     "--network=host",
     "--privileged",
-    "--add-host=dorette.local:192.168.90.185"
+    "--add-host=daisy.local:192.168.90.222"
   ],
   "containerEnv": {
     "DISPLAY": "${localEnv:DISPLAY}",
     "QT_X11_NO_MITSHM": "1",
     "LIBGL_ALWAYS_SOFTWARE": "1",
-    "ROS_MASTER_URI": "http://dorette.local:11311",
+    "ROS_MASTER_URI": "http://daisy.local:11311",
     "ROS_IP": "192.168.90.230",
-    "VEHICLE_NAME": "dorette"
+    "VEHICLE_NAME": "daisy"
   },
   "mounts": [
     "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind"
