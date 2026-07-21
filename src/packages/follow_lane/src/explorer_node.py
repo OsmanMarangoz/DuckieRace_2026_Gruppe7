@@ -25,7 +25,7 @@ import atexit
 from collections import deque
 
 import rospy
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 
 from city_graph import CityGraph, ExplorerPolicy, ExpectedGatesMap
 
@@ -68,6 +68,8 @@ class ExplorerNode:
             String, queue_size=1)
         self.pub_state = rospy.Publisher(
             f'/{self._vehicle_name}/explore/state', String, queue_size=1)
+        self.pub_halt = rospy.Publisher(
+            f'/{self._vehicle_name}/explore/halt', Bool, queue_size=1)
 
         rospy.Subscriber(f'/{self._vehicle_name}/mapping/pose', String,
                          self.cbPose, queue_size=1)
@@ -206,6 +208,8 @@ class ExplorerNode:
                     f"[explorer] MAPPING FERTIG — {len(self._gates)} Tore,"
                     f" {self.policy.sweep} Sweep(s).")
             self._suggestion = ""
+            # Sofortigen Halt publizieren (bevor cbDecisionDone auf Lane setzt)
+            self.pub_halt.publish(Bool(data=True))
             return
 
         self._done = False
@@ -221,7 +225,8 @@ class ExplorerNode:
         while not rospy.is_shutdown():
             if self._suggestion:
                 self.pub_suggest.publish(String(data=self._suggestion))
-            # gates_complete: alle expected gates zugewiesen -> DuckieBot darf stoppen
+
+            # gates_complete: alle expected gates zugewiesen
             if self.expected_gates_map:
                 eg = getattr(self.expected_gates_map, 'expected', None)
                 gates_complete = (eg is not None
@@ -229,11 +234,14 @@ class ExplorerNode:
                                           for edge in eg))
             else:
                 gates_complete = True  # kein expected_gates -> keine Bedingung
+
             if gates_complete and not self._done:
                 self._done = True
                 rospy.loginfo(
                     f"[explorer] ALLE TORE RICHTIG ZUGEORDNET ({len(self._validated_gates)})"
                     f" — stoppe Erkundung.")
+                self.pub_halt.publish(Bool(data=True))
+
             self.pub_state.publish(String(data=json.dumps({
                 "sweep": self.policy.sweep,
                 "done": self._done,
