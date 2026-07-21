@@ -105,21 +105,34 @@ class DetectAprilTagNode:
             cx = int(det['center'][0])
             cy = int(det['center'][1])
 
-            results.append({
-                "id": int(tag_id),
-                "center_x": cx,
-                "center_y": cy,
-            })
-
             # Corners: lb=left-bottom, rb=right-bottom, rt=right-top, lt=left-top
             corners = np.array([
                 det['lb-rb-rt-lt'][0],  # left-bottom
                 det['lb-rb-rt-lt'][1],  # right-bottom
                 det['lb-rb-rt-lt'][2],  # right-top
                 det['lb-rb-rt-lt'][3],  # left-top
-            ], dtype=int)
+            ], dtype=float)
 
-            cv2.polylines(cv_image, [corners.reshape((-1, 1, 2))], isClosed=True, color=(0, 255, 0), thickness=2)
+            # Flaeche der Boundingbox als Mass fuer Naehe (groesser = naeher)
+            area = float(corners[0][0] * corners[0][1]
+                         + corners[1][0] * corners[1][1]
+                         + corners[2][0] * corners[2][1]
+                         + corners[3][0] * corners[3][1]
+                         - corners[0][0] * corners[1][1]
+                         - corners[1][0] * corners[2][1]
+                         - corners[2][0] * corners[3][1]
+                         - corners[3][0] * corners[0][1])
+            if area < 0:
+                area = -area
+
+            results.append({
+                "id": int(tag_id),
+                "center_x": cx,
+                "center_y": cy,
+                "area": area,
+            })
+
+            cv2.polylines(cv_image, [corners.reshape((-1, 1, 2)).astype(int)], isClosed=True, color=(0, 255, 0), thickness=2)
             cv2.circle(cv_image, (cx, cy), 5, (0, 0, 255), -1)
             cv2.putText(cv_image, f"ID:{tag_id}", (cx - 20, cy - 15),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
@@ -129,10 +142,11 @@ class DetectAprilTagNode:
         #if not results:
         #    rospy.loginfo("No AprilTag detected")
 
-        # Publish tag ID (keep last detected ID if nothing detected now)
+        # Publish tag ID: das GROESSTE (naechste) Tag verwenden
         if results:
-            self._last_detected_id = results[0]["id"]
-            self._last_detection_time = rospy.Time.now()   # NEU
+            best = max(results, key=lambda r: r["area"])
+            self._last_detected_id = best["id"]
+            self._last_detection_time = rospy.Time.now()
         else:
             # NEU: Timeout-Check
             elapsed = (rospy.Time.now() - self._last_detection_time).to_sec()

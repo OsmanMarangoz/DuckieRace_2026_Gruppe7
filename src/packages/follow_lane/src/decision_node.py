@@ -1,5 +1,23 @@
 #!/usr/bin/env python3
 
+# ============================================================================
+# CHALLENGE-4-ERWEITERUNG (minimal-invasiv):
+#
+# 1) direction_source (rosparam ~direction_source, default "random"):
+#      "random"   -> EXAKT das alte Verhalten (Challenge 1-3 unveraendert).
+#      "external" -> Richtung kommt vom explorer_node
+#                    (/explore/suggested_action); ist die Empfehlung nicht
+#                    in der erlaubten Liste des Kreuzungstags, Fallback random.
+#
+# 2) Kreuzungstag-Filter: fuer die ID_FUNCTIONS-Wahl zaehlen nur Tags 1-4.
+#    Grund: In Challenge 4 stehen Tor-Tags (5-13) auf den Strecken. Ohne
+#    Filter wuerde ein kurz vor der Kreuzung gesehenes Tor-Tag den
+#    Kreuzungstag ueberschreiben -> decision wuerde "skip" fahren.
+#    In Challenge 1-3 gibt es keine Tags 5-13 -> Filter aendert dort nichts.
+#
+# Alles andere (Stop-Mechanik, Manoever, done-Signal) ist unveraendert.
+# ============================================================================
+
 import rospy
 from std_msgs.msg import Int32, Bool
 from duckietown_msgs.msg import Twist2DStamped
@@ -24,8 +42,13 @@ class DecisionNode:
         self._vehicle_name = os.environ['VEHICLE_NAME']
 
         self._last_april_tag_id = -1
+        self._last_intersection_tag_id = -1          # NEU: nur IDs 1-4
         self._last_control_mode = ControlType.Lane.value
         self._busy = False
+
+        # NEU: Richtungsquelle ("random" = altes Verhalten)
+        self._direction_source = rospy.get_param("~direction_source", "random")
+        self._suggested_action = ""
 
         self.pub_cmd = rospy.Publisher(
             f'/{self._vehicle_name}/car_cmd_switch_node/cmd',
@@ -40,13 +63,27 @@ class DecisionNode:
             f'/{self._vehicle_name}/switch/control', Int32,
             self.cbControlMode, queue_size=1)
 
+        # NEU: Empfehlung vom Explorer (wird nur bei "external" benutzt)
+        self.sub_suggest = rospy.Subscriber(
+            f'/{self._vehicle_name}/explore/suggested_action', String,
+            self.cbSuggestedAction, queue_size=1)
+
         self.pub_action = rospy.Publisher(
             f'/{self._vehicle_name}/decision/action', String, queue_size=1)
 
-        rospy.loginfo(f"[{node_name}] Decision node ready")
+        rospy.loginfo(
+            f"[{node_name}] Decision node ready"
+            f" (direction_source={self._direction_source})")
 
     def cbAprilTagID(self, msg):
         self._last_april_tag_id = msg.data
+        if msg.data in self.ID_FUNCTIONS:            # NEU: 1-4 separat merken
+            self._last_intersection_tag_id = msg.data
+        elif msg.data == -1:                         # Timeout vom Detector
+            self._last_intersection_tag_id = -1
+
+    def cbSuggestedAction(self, msg):                # NEU
+        self._suggested_action = msg.data
 
     def cbControlMode(self, msg):
         current_mode = msg.data
@@ -60,21 +97,35 @@ class DecisionNode:
         if triggered:
             self.handle_obstacle()
 
+    def choose_action(self, allowed):                # NEU: Auswahl gekapselt
+        """Waehlt das Manoever aus der erlaubten Liste des Kreuzungstags."""
+        if self._direction_source == "external":
+            suggestion = self._suggested_action
+            if suggestion in allowed:
+                rospy.loginfo(f"Externe Richtung uebernommen: '{suggestion}'")
+                return suggestion
+            rospy.logwarn(
+                f"Externe Empfehlung '{suggestion}' nicht in {allowed}"
+                f" — Fallback auf random.")
+        return random.choice(allowed)
+
     def handle_obstacle(self):
         self._busy = True
         try:
-            tag_id = self._last_april_tag_id
+            # NEU: Kreuzungstag (1-4) bevorzugen; Fallback altes Verhalten
+            tag_id = self._last_intersection_tag_id
+            if tag_id == -1:
+                tag_id = self._last_april_tag_id
             rospy.loginfo(f"Obstacle phase started. Last tag ID: {tag_id}")
 
             # Phase 1: ECHTER Stop
             rospy.loginfo(f"Phase 1: stopping for {self.STOP_DURATION}s")
-            self.pub_action.publish(String(data="stopping"))   # <-- NEU
+            self.pub_action.publish(String(data="stopping"))
             self.publish_cmd(v=0.0, omega=0.0, duration=self.STOP_DURATION)
-
 
             # Phase 2: Action (oder skip wenn keine valide Tag-ID)
             if tag_id in self.ID_FUNCTIONS:
-                chosen = random.choice(self.ID_FUNCTIONS[tag_id])
+                chosen = self.choose_action(self.ID_FUNCTIONS[tag_id])  # NEU
                 rospy.loginfo(f"Phase 2: executing '{chosen}' for tag ID {tag_id}")
                 self.pub_action.publish(String(data=chosen))
                 if chosen == 'turn_left':

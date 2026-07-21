@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <!-- ================= Phase A: Mapping (Challenge 4) =================
+         Startet den kompletten follow_lane-Stack PLUS die drei Mapping-
+         Nodes. decision_node laeuft hier mit direction_source=external
+         (Explorer steuert die Abbiege-Wahl). Das alte follow_lane.launch
+         bleibt unangetastet und verhaelt sich weiterhin exakt wie bisher.
+
+         STARTPOSITION (frei waehlbar laut Aufgabe): Bot auf die Strasse
+         stellen, die <start_node> ueber <start_exit_arm> verlaesst, und
+         zwar VON <start_node> WEGfahrend. Beispiel unten: Strasse A1-B1,
+         Fahrtrichtung A -> B.                                          -->
+
+    <arg name="start_node" default="A"/>
+    <arg name="start_exit_arm" default="1"/>
+    <arg name="map_output" default="/tmp/duckie_city_map.json"/>
+    <arg name="expected_gates" default="5"/>
+
+    <!-- ==================== bestehender Stack (unveraendert) ============ -->
+    <node name="detect_lane_node" pkg="follow_lane" type="detect_lane_node.py" output="screen"/>
+    <node name="detect_apriltag_node" pkg="follow_lane" type="detect_apriltag_node.py" output="screen"/>
+    <node name="switch_control_node" pkg="follow_lane" type="switch_control_node.py" output="screen"/>
+    <node name="control_lane_node" pkg="follow_lane" type="control_lane_node.py" output="screen"/>
+
+    <!-- decision_node: einzige Aenderung = Richtungsquelle extern -->
+    <node name="decision_node" pkg="follow_lane" type="decision_node.py" output="screen">
+        <param name="direction_source" value="external"/>
+    </node>
+
+    <!-- ==================== Phase-A-Nodes (neu, passiv/additiv) ========= -->
+    <node name="localization_node" pkg="follow_lane" type="localization_node.py" output="screen">
+        <param name="start_node" value="$(arg start_node)"/>
+        <param name="start_exit_arm" value="$(arg start_exit_arm)"/>
+    </node>
+
+    <node name="explorer_node" pkg="follow_lane" type="explorer_node.py" output="screen">
+        <param name="expected_gates" value="$(arg expected_gates)"/>
+    </node>
+
+    <node name="gate_mapper_node" pkg="follow_lane" type="gate_mapper_node.py" output="screen">
+        <param name="map_output" value="$(arg map_output)"/>
+    </node>
+
+    <!-- Debug-Ausgabe im Terminal (automatisch) -->
+    <node name="mapping_debug_terminal" pkg="follow_lane" type="mapping_debug_overlay.py" output="screen"/>
+
+</launch>

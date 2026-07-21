@@ -56,13 +56,19 @@ roslaunch follow_lane follow_lane.launch
 
 ## Architecture
 
-Five ROS nodes form the autonomous driving pipeline:
+ROS nodes form the autonomous driving pipeline:
 
 - **`detect_lane_node`** — processes the camera feed, builds HSV masks for white/yellow/red, computes lane-center error, and reports red-line pixel count.
 - **`detect_apriltag_node`** — runs the AprilTag detector on the camera feed and publishes the last detected tag ID (with timeout).
 - **`switch_control_node`** — high-level state machine. Switches between `Lane` and `Obstacle` mode based on red-line detection; waits for a `done` signal from `decision_node` to resume.
 - **`control_lane_node`** — PID controller that turns the lane-center error into velocity/omega commands. Only publishes while in Lane mode.
 - **`decision_node`** — owns the obstacle phase: stops the bot, executes an action chosen by the last AprilTag ID, then signals completion.
+- **`explorer_node`** - berechnet aus geglaubter ist-position die abbiege empfehlung, fuer kantenabdeckung. Mehrfach-sweep.
+- **`gate_mapper_node `** - mapt tor 5-13 zu kante wo sie ist.
+- **`localization_node `** - passiv, published geglaubte position als json
+- **`city_graph `** - Stadtgraph logik fuer Mapping, hier wird die karte als graph gezeigt.
+- **`mapping_debug_overlay `** - mapping_debug_overlay published debug bild fuer RQT.
+
 
 ## Live tuning
 

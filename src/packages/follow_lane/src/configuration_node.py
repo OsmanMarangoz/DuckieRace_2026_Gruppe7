@@ -16,18 +16,13 @@ class ConfigurationNode:
         self._vehicle_name = os.environ['VEHICLE_NAME']
 
 
-        self.config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'config'))
         self.update_topic = f'/{self._vehicle_name}/update_parameters'
         self.publisher = rospy.Publisher(self.update_topic, String, queue_size=1)
 
         self.image_subscriber = None
         self.image = None
 
-        self.available_nodes = []
-        for file_name in sorted(os.listdir(self.config_dir)):
-            if file_name.endswith('.json'):
-                node_name = os.path.splitext(file_name)[0].replace('.json', '')
-                self.available_nodes.append(node_name)
+        self.available_nodes = ['detect_lane_node']
 
         self.root = tk.Tk()
         self.root.title('Duckie Configuration')

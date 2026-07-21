@@ -229,6 +229,7 @@ class DetectLaneNode:
         msg_red      = Float64()
         msg_red.data = float(red_pixel_count)
         self.pub_red_line.publish(msg_red)
+        #rospy.loginfo(f"Red line at ({int(msg_red.data)} px) ")
 
         white_alternative  = int(len(img[0]) * 0.95)
         yellow_alternative = int(len(img[0]) * 0.05)

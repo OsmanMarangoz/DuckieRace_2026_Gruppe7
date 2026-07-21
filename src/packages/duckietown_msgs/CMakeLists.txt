@@ -90,6 +90,11 @@ add_message_files(
   WheelsCmd.msg
   WheelsCmdStamped.msg
   WheelsCmdDBV2Stamped.msg
+  GraphNode.msg
+  GraphEdge.msg
+  TopologicalMap.msg
+  Waypoint.msg
+  WaypointArray.msg
 )
 
 ## Generate services in the 'srv' folder
