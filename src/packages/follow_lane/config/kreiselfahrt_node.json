@@ -1,0 +1,265 @@
+{
+  "debug_image_topics": [
+    "/debug/kreiselfahrt/camera/compressed",
+    "/debug/kreiselfahrt/yellow_raw/compressed",
+    "/debug/kreiselfahrt/yellow_virtual/compressed",
+    "/debug/kreiselfahrt/control/compressed"
+  ],
+  "parameters": {
+    "birdseye": {
+      "size": {
+        "default": 400
+      },
+      "top_left_x": {
+        "default": 159,
+        "min": -100,
+        "max": 740
+      },
+      "top_left_y": {
+        "default": 218,
+        "min": 0,
+        "max": 480
+      },
+      "top_right_x": {
+        "default": 441,
+        "min": -100,
+        "max": 740
+      },
+      "top_right_y": {
+        "default": 218,
+        "min": 0,
+        "max": 480
+      },
+      "bottom_left_x": {
+        "default": -29,
+        "min": -100,
+        "max": 740
+      },
+      "bottom_left_y": {
+        "default": 470,
+        "min": 0,
+        "max": 480
+      },
+      "bottom_right_x": {
+        "default": 606,
+        "min": -100,
+        "max": 740
+      },
+      "bottom_right_y": {
+        "default": 470,
+        "min": 0,
+        "max": 480
+      }
+    },
+    "yellow": {
+      "hl": {
+        "default": 15,
+        "min": 0,
+        "max": 179
+      },
+      "hh": {
+        "default": 60,
+        "min": 0,
+        "max": 179
+      },
+      "sl": {
+        "default": 80,
+        "min": 0,
+        "max": 255
+      },
+      "sh": {
+        "default": 255,
+        "min": 0,
+        "max": 255
+      },
+      "vl": {
+        "default": 130,
+        "min": 0,
+        "max": 255
+      },
+      "vh": {
+        "default": 255,
+        "min": 0,
+        "max": 255
+      }
+    },
+    "virtual_line": {
+      "min_component_area": {
+        "default": 20,
+        "min": 1,
+        "max": 2000
+      },
+      "segment_length": {
+        "default": 100,
+        "min": 5,
+        "max": 300
+      },
+      "line_width": {
+        "default": 7,
+        "min": 1,
+        "max": 40
+      },
+      "right_padding": {
+        "default": 5,
+        "min": 0,
+        "max": 80
+      },
+      "lookahead_min_y": {
+        "default": 209,
+        "min": 0,
+        "max": 350
+      },
+      "near_field_top": {
+        "default": 330,
+        "min": 200,
+        "max": 399
+      },
+      "near_field_min_aspect_ratio": {
+        "default": 0.8,
+        "min": 0.1,
+        "max": 3.0
+      },
+      "near_field_extra_padding": {
+        "default": 25,
+        "min": 0,
+        "max": 100
+      }
+    },
+    "tracking": {
+      "roi_left": {
+        "default": 0,
+        "min": 0,
+        "max": 399
+      },
+      "roi_right": {
+        "default": 300,
+        "min": 1,
+        "max": 400
+      },
+      "roi_top": {
+        "default": 160,
+        "min": 0,
+        "max": 399
+      },
+      "roi_bottom": {
+        "default": 400,
+        "min": 1,
+        "max": 400
+      },
+      "target_x": {
+        "default": 80,
+        "min": 0,
+        "max": 399
+      },
+      "min_row_coverage": {
+        "default": 0.15,
+        "min": 0.01,
+        "max": 1.0
+      },
+      "boundary_percentile": {
+        "default": 80.0,
+        "min": 0.0,
+        "max": 100.0
+      },
+      "smoothing_alpha": {
+        "default": 0.4,
+        "min": 0.01,
+        "max": 1.0
+      },
+      "hold_seconds": {
+        "default": 0.35,
+        "min": 0.0,
+        "max": 3.0
+      },
+      "duckie_memory_seconds": {
+        "default": 0.8,
+        "min": 0.0,
+        "max": 3.0
+      },
+      "reacquire_frames": {
+        "default": 2,
+        "min": 1,
+        "max": 20
+      }
+    },
+    "control": {
+      "p": {
+        "default": 6.56,
+        "min": 0.0,
+        "max": 10.0
+      },
+      "i": {
+        "default": 0.04,
+        "min": 0.0,
+        "max": 2.0
+      },
+      "d": {
+        "default": 1.0,
+        "min": 0.0,
+        "max": 10.0
+      },
+      "nominal_speed": {
+        "default": 0.12,
+        "min": 0.0,
+        "max": 0.5
+      },
+      "reduced_speed": {
+        "default": 0.07,
+        "min": 0.0,
+        "max": 0.5
+      },
+      "search_speed": {
+        "default": 0.09,
+        "min": 0.0,
+        "max": 0.5
+      },
+      "search_omega": {
+        "default": 1.68,
+        "min": 0.0,
+        "max": 5.0
+      },
+      "reacquire_countersteer_angle": {
+        "default": 0.38,
+        "min": 0.0,
+        "max": 1.0
+      },
+      "reacquire_forward_distance": {
+        "default": 0.08,
+        "min": 0.0,
+        "max": 0.5
+      },
+      "reacquire_forward_speed": {
+        "default": 0.08,
+        "min": 0.01,
+        "max": 0.3
+      },
+      "max_omega": {
+        "default": 3.09,
+        "min": 0.1,
+        "max": 8.0
+      },
+      "integral_limit": {
+        "default": 5.0,
+        "min": 0.0,
+        "max": 20.0
+      }
+    },
+    "safety": {
+      "camera_timeout": {
+        "default": 0.5,
+        "min": 0.1,
+        "max": 5.0
+      },
+      "command_rate": {
+        "default": 10,
+        "min": 1,
+        "max": 30
+      },
+      "debug_rate": {
+        "default": 10,
+        "min": 1,
+        "max": 30
+      }
+    }
+  }
+}

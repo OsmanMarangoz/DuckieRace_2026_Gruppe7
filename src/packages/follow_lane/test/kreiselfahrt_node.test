@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <node
+        name="kreiselfahrt_node"
+        pkg="follow_lane"
+        type="kreiselfahrt_node.py"
+        output="screen">
+        <env name="VEHICLE_NAME" value="testbot" />
+        <!-- Regression fixture: stale private ROS1 parameters must not reconnect
+             a fresh run to another vehicle. -->
+        <param name="vehicle_name" value="daisy" />
+        <param name="camera_topic" value="/daisy/camera_node/image/compressed" />
+        <param name="command_topic" value="/daisy/car_cmd_switch_node/cmd" />
+        <remap from="/testbot/camera_node/image/compressed" to="/test/kreiselfahrt/camera/compressed" />
+        <remap from="/testbot/car_cmd_switch_node/cmd" to="/test/kreiselfahrt/cmd" />
+    </node>
+
+    <test
+        test-name="kreiselfahrt_ros"
+        pkg="follow_lane"
+        type="test_kreiselfahrt_ros.py"
+        time-limit="30" />
+</launch>

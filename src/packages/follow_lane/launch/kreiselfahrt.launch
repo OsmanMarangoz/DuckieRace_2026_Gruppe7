@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <!-- Deliberately independent: do not launch follow_lane.launch in parallel. -->
+    <arg name="vehicle_name" default="$(env VEHICLE_NAME)" />
+    <arg name="camera_topic" default="/$(arg vehicle_name)/camera_node/image/compressed" />
+    <arg name="command_topic" default="/$(arg vehicle_name)/car_cmd_switch_node/cmd" />
+
+    <node
+        name="kreiselfahrt_node"
+        pkg="follow_lane"
+        type="kreiselfahrt_node.py"
+        output="screen">
+        <env name="VEHICLE_NAME" value="$(arg vehicle_name)" />
+        <remap from="/$(arg vehicle_name)/camera_node/image/compressed" to="$(arg camera_topic)" />
+        <remap from="/$(arg vehicle_name)/car_cmd_switch_node/cmd" to="$(arg command_topic)" />
+    </node>
+
+    <!-- required=true also shuts down the driving node if the dashboard exits unexpectedly. -->
+    <node
+        name="kreiselfahrt_dashboard"
+        pkg="follow_lane"
+        type="kreiselfahrt_dashboard.py"
+        output="screen"
+        required="true">
+        <env name="VEHICLE_NAME" value="$(arg vehicle_name)" />
+    </node>
+</launch>
