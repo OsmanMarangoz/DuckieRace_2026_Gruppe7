@@ -7,8 +7,8 @@ schnellste Route und publiziert sie als String (JSON) auf
 /<veh>/planned/path.
 
 Params:
-  ~start_plan_node       Startknoten, z.B. "A"
-  ~start_plan_exit_arm   Arm, ueber den der Bot den Startknoten verlaesst
+  ~start_plan_node       Knoten der aktuellen Startkante, z.B. "A"
+  ~start_plan_exit_arm   Arm, ueber den der Bot von diesem Knoten wegfaehrt
   ~gate_sequence         Space-separated Gate-IDs, z.B. "8 9 7 10 6"
   ~map_output            Pfad zur Map-Datei (default: /tmp/duckie_city_map.json)
 """
@@ -18,11 +18,9 @@ import os
 
 import rospy
 from std_msgs.msg import String
-from duckietown_msgs.msg import Twist2DStamped
 
-from city_graph import CityGraph, exit_arm_to_turn
+from city_graph import CityGraph
 from planner import Planner
-from switch_control_node import ControlType
 
 
 class PlannerNode:
@@ -51,11 +49,8 @@ class PlannerNode:
 
         # Publisher
         self.pub_planned_path = rospy.Publisher(
-            f'/{self._vehicle_name}/planned/path', String, queue_size=1)
-        self.pub_switch = rospy.Publisher(
-            f'/{self._vehicle_name}/car_cmd_switch_node/cmd',
-            Twist2DStamped, queue_size=1)
-
+            f'/{self._vehicle_name}/planned/path', String, queue_size=1,
+            latch=True)
         # Subscriber fuer Param-Updates
         rospy.Subscriber(
             f'/{self._vehicle_name}/planner/gate_sequence', String,
@@ -77,21 +72,38 @@ class PlannerNode:
             self._load_expected_gates()
             return
 
-        # Gates laden (validierte Tore)
-        validated = data.get("validated_gates", {})
-        if validated:
-            self.gate_to_edge = {
-                int(k): v for k, v in validated.items()
-            }
-        else:
-            gates = data.get("gates", {})
-            self.gate_to_edge = {
-                int(k): v for v, k in gates.items()
-            }
+        # Der Gate-Mapper speichert zwei absichtlich redundante Formate:
+        #   gates        : {edge_id: gate_id}
+        #   gates_by_tag : {gate_id: edge_id}
+        # Die Live-Meldung "validated_gates" hat ebenfalls das erste Format.
+        # Akzeptiere alle drei Formate, aber leite sie immer zu gate -> edge um.
+        self.gate_to_edge = {}
+        for field in ("gates_by_tag", "validated_gates", "gates"):
+            self._add_gate_entries(data.get(field, {}))
 
         if not self.gate_to_edge:
             rospy.logwarn("[planner] Keine Gates in Map-Datei — lade expected_gates")
             self._load_expected_gates()
+
+    def _add_gate_entries(self, entries):
+        """Fuege Gate-Eintraege im Format gate->edge oder edge->gate hinzu."""
+        if not isinstance(entries, dict):
+            return
+        for key, value in entries.items():
+            # gate -> edge (gates_by_tag oder eine externe Map-Datei)
+            try:
+                gate_id = int(key)
+                edge_id = str(value)
+            except (TypeError, ValueError):
+                # edge -> gate (gate_mapper_node)
+                try:
+                    gate_id = int(value)
+                    edge_id = str(key)
+                except (TypeError, ValueError):
+                    rospy.logwarn(
+                        f"[planner] Ungueltiger Gate-Map-Eintrag: {key!r}: {value!r}")
+                    continue
+            self.gate_to_edge.setdefault(gate_id, edge_id)
 
     def _load_weights(self):
         """Lade Kantengewichte aus separater Datei (timing_node)."""
@@ -126,79 +138,70 @@ class PlannerNode:
             rospy.logerr(f"[planner] Ungueltige gate_sequence: {self._gate_sequence_str}")
             return
 
-        # Startkante berechnen und validieren
-        start_edge = self.planner.compute_start_edge(self._start_node, self._start_arm)
-        if gate_sequence:
-            first_gate = gate_sequence[0]
-            first_gate_edge = self.gate_to_edge.get(first_gate)
-            if first_gate_edge:
-                self.planner.validate_start_edge(start_edge, first_gate_edge)
-            else:
-                rospy.logwarn(
-                    f"[planner] Erstes Gate {first_gate} nicht in gate_to_edge")
-
         # Pfad planen
         try:
-            path = self.planner.plan_path(gate_sequence, self._start_node, self._start_arm)
+            route = self.planner.plan_route(
+                gate_sequence, self._start_node, self._start_arm)
         except ValueError as e:
             rospy.logerr(f"[planner] Planning fehlgeschlagen: {e}")
             self._publish_error(str(e))
             return
 
-        if path is None:
-            rospy.logerr("[planner] Kein Pfad gefunden — Graph ist unzusammenhaengend")
-            self._publish_error("No path found")
-            return
-
-        # Kanten in Actions umwandeln (entry_arm bekannt aus plan_path)
-        action_list = []
-        cur_node = self._start_node
-        cur_exit_arm = self._start_arm
-        for gate_id, target_edge in path:
-            seg = self.planner._dijkstra((cur_node, cur_exit_arm), target_edge)
-            if seg:
-                for eid in seg:
-                    # Finde den exit_arm fuer diese Kante
-                    for (node, arm), e in self.planner._edge_map.items():
-                        if e == eid and node == cur_node:
-                            action_list.append(exit_arm_to_turn(cur_exit_arm, arm))
-                            cur_node = node
-                            cur_exit_arm = arm
-                            break
-            # Letzte Kante des Gates
-            for (node, arm), e in self.planner._edge_map.items():
-                if e == target_edge and node == cur_node:
-                    action_list.append(exit_arm_to_turn(cur_exit_arm, arm))
-                    cur_node = node
-                    cur_exit_arm = arm
-                    break
-            cur_node = self.planner._edge_to_node(target_edge)
-            cur_exit_arm = self.graph.exit_arm(
-                self.planner._edge_to_node(target_edge), cur_node)
-        action_list = [a for a, _ in actions if a is not None]
+        self._log_weights()
 
         # Publizieren
         payload = {
-            "gates": [gid for gid, _ in path],
-            "edges": [eid for _, eid in path],
-            "actions": action_list,
-            "total_actions": len(action_list),
+            "gates": route["gates"],
+            "gate_edges": route["gate_edges"],
+            "edges": route["edges"],
+            "actions": route["actions"],
+            "steps": route["steps"],
+            "total_actions": len(route["actions"]),
+            "total_weight": route["total_weight"],
             "done": False,
             "error": None,
         }
         self.pub_planned_path.publish(String(data=json.dumps(payload)))
         rospy.loginfo(
-            f"[planner] Route geplant: {len(action_list)} Actions, "
+            f"[planner] Route geplant: {len(route['actions'])} Actions, "
+            f"{len(route['edges'])} Kanten, Gewicht {route['total_weight']:.2f}, "
             f"Gates {gate_sequence}")
+        self._log_route(route)
 
-        # Auf Lane-Modus schalten (switch_control_node)
-        lane_msg = Twist2DStamped()
-        lane_msg.data = ControlType.Lane.value
-        self.pub_switch.publish(lane_msg)
-        rospy.loginfo(f"[planner] Auf Lane-Modus geschaltet")
+    @staticmethod
+    def _log_route(route):
+        """Gibt den Plan lesbar auf der ROS-Konsole aus."""
+        rospy.loginfo("[planner] ===== Geplanter Weg =====")
+        for number, step in enumerate(route["steps"]):
+            if step["kind"] == "start":
+                rospy.loginfo(
+                    f"[planner] Start: {step['from_node']} Arm {step['exit_arm']} "
+                    f"-- {step['edge']} --> {step['to_node']} Arm {step['to_arm']} "
+                    f"| Gewicht {step['weight']:.2f}s ({step['weight_source']}) "
+                    f"| {step['reason']}")
+                continue
+            alternatives = ", ".join(
+                f"{item['action_label']} -> {item['edge']} "
+                f"({item['weight']:.2f}s)"
+                for item in step["alternatives"])
+            rospy.loginfo(
+                f"[planner] {number}. bei {step['at_node']} (Eingang "
+                f"Arm {step['entry_arm']}): {step['action_label']} ueber "
+                f"Arm {step['exit_arm']} -> {step['edge']} -> "
+                f"{step['to_node']} Arm {step['to_arm']} | "
+                f"Gewicht {step['weight']:.2f}s ({step['weight_source']}), "
+                f"Summe {step['cumulative_weight']:.2f}s | {step['reason']} | "
+                f"Erlaubte Optionen: {alternatives}")
+        rospy.loginfo("[planner] =========================")
 
-        # Kurze Pause, damit switch_control_node die Aenderung verarbeitet
-        rospy.sleep(0.5)
+    def _log_weights(self):
+        """Gibt alle vom Planner verwendeten Kantengewichte aus."""
+        rospy.loginfo("[planner] ===== Kantengewichte =====")
+        for edge_id in sorted(self.graph.all_edge_ids()):
+            rospy.loginfo(
+                f"[planner] {edge_id}: {self.planner._weight(edge_id):.2f}s "
+                f"({self.planner._weight_source(edge_id)})")
+        rospy.loginfo("[planner] ==========================")
 
     def _publish_error(self, error_msg):
         """Publiziere Fehler-Message."""

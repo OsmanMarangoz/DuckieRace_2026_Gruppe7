@@ -19,5 +19,7 @@ install(PROGRAMS
   src/gate_mapper_node.py
   src/mapping_debug_overlay.py
   src/mapping_debug_terminal.py
+  src/planner.py
+  src/planner_node.py
   DESTINATION lib/${PROJECT_NAME}
 )

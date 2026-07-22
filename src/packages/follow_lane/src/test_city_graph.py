@@ -49,13 +49,12 @@ def test_arm_math():
     for e in (1, 2, 3, 4):
         check(turn_to_exit_arm(e, ACTION_FORWARD) == wrap_arm(e + 2),
               f"forward von Arm {e} = gegenueber")
-    # links = identitaet (entry_arm == exit_arm)
+    # links und rechts sind die beiden benachbarten Arme
     for e in (1, 2, 3, 4):
-        check(turn_to_exit_arm(e, ACTION_LEFT) == e,
-              f"links von Arm {e} = {e} (identitaet)")
-    # rechts ist der benachbarte Arm
-    for e in (1, 2, 3, 4):
+        left = turn_to_exit_arm(e, ACTION_LEFT)
         r = turn_to_exit_arm(e, ACTION_RIGHT)
+        check(left != e and left != wrap_arm(e + 2),
+              f"links von Arm {e} = {left} (benachbart, nicht gegenueber)")
         check(r != e and r != wrap_arm(e + 2),
               f"rechts von Arm {e} = {r} (benachbart, nicht gegenueber)")
     # Invers: exit_arm_to_turn(turn_to_exit_arm(e, a), e) == a
@@ -63,7 +62,7 @@ def test_arm_math():
     for e, a in itertools.product((1, 2, 3, 4),
                                   (ACTION_FORWARD, ACTION_LEFT, ACTION_RIGHT)):
         x = turn_to_exit_arm(e, a)
-        check(exit_arm_to_turn(x, e) == a,
+        check(exit_arm_to_turn(e, x) == a,
               f"inv1 e={e} a={a} x={x}")
         inv = exit_arm_to_turn(e, x)
         if inv is not None:
@@ -74,10 +73,10 @@ def test_arm_math():
         opp = wrap_arm(e + 2)
         check(exit_arm_to_turn(e, opp) == ACTION_FORWARD,
               f"opposite e={e} -> opp={opp} = move_forward")
-    # Gleicher Arm -> LEFT (Identity)
+    # Gleicher Arm ist eine Wende und deshalb nicht fahrbar.
     for e in (1, 2, 3, 4):
-        check(exit_arm_to_turn(e, e) == ACTION_LEFT,
-              f"same arm e={e} -> {e} = turn_left")
+        check(exit_arm_to_turn(e, e) is None,
+              f"same arm e={e} -> {e} = U-Turn/verboten")
 
 
 # ------------------------------------------------------------ 2. Graph
@@ -257,15 +256,15 @@ def test_desync_detection():
     print("[4] Desync-Erkennung")
     graph = CityGraph(CITY)
     t = GraphTracker(graph, "A", 1)
-    check(t.status == "WAITING_FIRST_STOP", "Tracker startet in WAITING_FIRST_STOP")
+    check(t.status == "ON_EDGE", "Tracker startet auf der Startkante")
     t.on_stopping(graph.edge_from("A", 1))         # auf A1-B1, an B
-    check(t.status == "ON_EDGE", "erster Stopp -> ON_EDGE")
-    t.on_action(ACTION_RIGHT)                       # B Eingang 1, rechts -> Arm 4
+    check(t.status == "AT_INTERSECTION", "erster Stopp -> AT_INTERSECTION")
+    t.on_action(ACTION_LEFT)                        # B Eingang 1, links -> Arm 4
     check(t.status == "LOST", "unmoegliches Manoever -> LOST")
 
     t2 = GraphTracker(graph, "A", 1)
     t2.on_stopping(graph.edge_from("A", 1), last_tag_id=3)
-    # turn_right(1) mit CLOCKWISE_NUMBERING=False -> Arm 4 (B->A, A4-B2)
+    # turn_right(1) -> Arm 2 (B->A, A4-B2)
     t2.on_action(ACTION_RIGHT)
     check(t2.pose_dict()["edge_id"] == "A4-B2" and t2.status == "ON_EDGE",
           "Tracking laeuft trotz Soft-Mismatch weiter")

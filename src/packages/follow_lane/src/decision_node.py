@@ -52,6 +52,7 @@ class DecisionNode:
         self._direction_source = rospy.get_param("~direction_source", "random")
         self._suggested_action = ""
         self._last_edge_id = ""
+        self._halt_requested = False
 
         self.pub_cmd = rospy.Publisher(
             f'/{self._vehicle_name}/car_cmd_switch_node/cmd',
@@ -70,6 +71,9 @@ class DecisionNode:
         self.sub_suggest = rospy.Subscriber(
             f'/{self._vehicle_name}/explore/suggested_action', String,
             self.cbSuggestedAction, queue_size=1)
+        self.sub_halt = rospy.Subscriber(
+            f'/{self._vehicle_name}/explore/halt', Bool,
+            self.cbHalt, queue_size=1)
 
         # NEU: Timing fuer Kantengewichtung (wird vom Timing-Node gelesen)
         self._last_action_time = None
@@ -78,6 +82,7 @@ class DecisionNode:
 
         # NEU: Geplante Route vom Planner
         self._planned_path = None
+        self._planned_steps = None
         self._planner_done = False
         self.sub_planned_path = rospy.Subscriber(
             f'/{self._vehicle_name}/planned/path', String,
@@ -90,6 +95,9 @@ class DecisionNode:
 
         self.pub_action = rospy.Publisher(
             f'/{self._vehicle_name}/decision/action', String, queue_size=1)
+        self.pub_route_complete = rospy.Publisher(
+            f'/{self._vehicle_name}/decision/route_complete', Bool,
+            queue_size=1, latch=True)
 
         rospy.loginfo(
             f"[{node_name}] Decision node ready"
@@ -105,12 +113,21 @@ class DecisionNode:
     def cbSuggestedAction(self, msg):                # NEU
         self._suggested_action = msg.data
 
+    def cbHalt(self, msg):
+        self._halt_requested = msg.data
+
     def cbPlannedPath(self, msg):                    # NEU: geplaante Route
         try:
             data = json.loads(msg.data)
         except (ValueError, TypeError):
             return
         self._planned_path = data.get("actions")
+        steps = data.get("steps")
+        self._planned_steps = (
+            [step for step in steps if step.get("kind") == "action"]
+            if isinstance(steps, list) else None)
+        if isinstance(steps, list) and steps:
+            self._last_edge_id = steps[0].get("edge", self._last_edge_id)
         self._planner_done = data.get("done", False)
         if self._planned_path is not None:
             rospy.loginfo(f"[planner] Route empfangen: {len(self._planned_path)} Actions")
@@ -139,7 +156,21 @@ class DecisionNode:
         if self._planned_path is not None and not self._planner_done:
             if len(self._planned_path) > 0:
                 action = self._planned_path.pop(0)
-                rospy.loginfo(f"[planner] Plane Action: '{action}'")
+                step = None
+                if self._planned_steps:
+                    step = self._planned_steps.pop(0)
+                if step:
+                    self._last_edge_id = step.get("edge", self._last_edge_id)
+                    options = ", ".join(
+                        f"{item['action']}->{item['edge']} "
+                        f"({item['weight']:.2f}s)"
+                        for item in step.get("alternatives", []))
+                    rospy.loginfo(
+                        f"[planner] Entscheidung: '{action}' -> {step['edge']} "
+                        f"({step['weight']:.2f}s, {step['weight_source']}). "
+                        f"Grund: {step['reason']}. Erlaubte Optionen: {options}")
+                else:
+                    rospy.loginfo(f"[planner] Plane Action: '{action}'")
                 return action
             else:
                 self._planner_done = True
@@ -167,14 +198,41 @@ class DecisionNode:
             # Phase 1: ECHTER Stop
             rospy.loginfo(f"Phase 1: stopping for {self.STOP_DURATION}s")
             self.pub_action.publish(String(data="stopping"))
+            # Die soeben vollstaendig befahrene Kante sofort messen. Dadurch
+            # geht auch die letzte Kante nicht verloren, wenn danach gestoppt
+            # und die Gewichtsdatei gespeichert wird.
+            self._publish_completed_edge_time()
             self.publish_cmd(v=0.0, omega=0.0, duration=self.STOP_DURATION)
+
+            # Der Explorer meldet dies erst an der roten Linie am Ende der
+            # letzten Mapping-Kante. Keine weitere Kreuzungsfahrt starten.
+            if self._halt_requested:
+                self.pub_action.publish(String(data=""))
+                self.publish_cmd(v=0.0, omega=0.0, duration=0.1)
+                rospy.loginfo(
+                    f"[explorer] Letzte Kante '{self._last_edge_id}' "
+                    f"vollstaendig abgefahren — STOP.")
+                return
+
+            # Keine Action mehr bedeutet: Die letzte geplante Kante ist jetzt
+            # bis zu ihrer roten Linie vollstaendig abgefahren.
+            if (self._planned_path is not None and not self._planner_done
+                    and len(self._planned_path) == 0):
+                self._planner_done = True
+                self.pub_action.publish(String(data=""))
+                self.pub_route_complete.publish(Bool(data=True))
+                self.publish_cmd(v=0.0, omega=0.0, duration=0.1)
+                rospy.loginfo(
+                    f"[planner] Route beendet: letzte Kante "
+                    f"'{self._last_edge_id}' vollstaendig abgefahren — STOP.")
+                return
 
             # Phase 2: Action (oder skip wenn keine valide Tag-ID)
             if tag_id in self.ID_FUNCTIONS:
                 chosen = self.choose_action(self.ID_FUNCTIONS[tag_id])  # NEU
                 rospy.loginfo(f"Phase 2: executing '{chosen}' for tag ID {tag_id}")
+                self._last_action_time = rospy.get_time()
                 self.pub_action.publish(String(data=chosen))
-                self._publish_edge_time(chosen)
                 if chosen == 'turn_left':
                     self.turn_left()
                 elif chosen == 'turn_right':
@@ -183,8 +241,8 @@ class DecisionNode:
                     self.move_forward()
             else:
                 rospy.loginfo(f"Phase 2: no valid tag (id={tag_id}) — skipping action")
+                self._last_action_time = rospy.get_time()
                 self.pub_action.publish(String(data="skip"))
-                self._publish_edge_time("skip")
 
             self.pub_action.publish(String(data=""))
 
@@ -222,18 +280,17 @@ class DecisionNode:
     def move_forward(self):
         self.publish_cmd(v=0.20, omega=0.0, duration=2.1)
 
-    def _publish_edge_time(self, action):
-        """Publish time delta since last action + current edge."""
+    def _publish_completed_edge_time(self):
+        """Publiziere die Fahrzeit der gerade abgeschlossenen Kante."""
         now = rospy.get_time()
         if self._last_action_time is not None:
             delta = now - self._last_action_time
             payload = json.dumps({
                 "edge_id": self._last_edge_id,
-                "action": action,
+                "event": "edge_complete",
                 "seconds": delta,
             })
             self.pub_edge_time.publish(String(data=payload))
-        self._last_action_time = now
 
     def run(self):
         rospy.spin()

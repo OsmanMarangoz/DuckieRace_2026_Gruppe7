@@ -7,8 +7,10 @@
          decision_node nutzt die geplante Route automatisch (vor dem Explorer).
 
          STARTPOSITION (unabhaengig vom Mapping-Start):
-         Der Roboter MUSS auf der Kante des ersten Gates starten.
-         Beispiel: Gate 8 = B3-C4 -> start_plan_node=B, start_plan_exit_arm=3
+         start_plan_node + start_plan_exit_arm beschreiben die Kante, auf
+         der der Bot bereits in Fahrtrichtung unterwegs ist. Der Planner
+         kann von jeder gueltigen Startkante zum ersten Gate routen.
+         Beispiel: B/3 bedeutet auf B3-C4 in Richtung C.
          -->
 
     <arg name="start_plan_node" default="A"/>
@@ -27,7 +29,7 @@
         <param name="direction_source" value="external"/>
     </node>
 
-    <!-- Planner-Node: berechne Route und wechsle auf Lane-Modus -->
+    <!-- Planner-Node: berechne Route und publiziere die Kreuzungs-Actions -->
     <node name="planner_node" pkg="follow_lane" type="planner_node.py" output="screen">
         <param name="start_plan_node" value="$(arg start_plan_node)"/>
         <param name="start_plan_exit_arm" value="$(arg start_plan_exit_arm)"/>

@@ -62,6 +62,7 @@ class ExplorerNode:
         self._validated_gates = {}  # nur validierte Tore (match zu expected)
         self._last_edge = None
         self._target_edge = ""  # welche Kante der Explorer empfehlen will
+        self._finishing_last_edge = False
 
         self.pub_suggest = rospy.Publisher(
             f'/{self._vehicle_name}/explore/suggested_action',
@@ -209,16 +210,28 @@ class ExplorerNode:
             set(pose.get("visited", [])), self._validated_gates)
 
         if action is None:
+            self._suggestion = ""
+            # Der Tracker markiert eine Kante bereits beim Einfahren als
+            # besucht. Erst AT_INTERSECTION bedeutet aber, dass sie bis zur
+            # naechsten roten Linie vollstaendig abgefahren wurde.
+            if pose.get("status") != "AT_INTERSECTION":
+                if not self._finishing_last_edge:
+                    self._finishing_last_edge = True
+                    rospy.loginfo(
+                        f"[explorer] Alle Ziele erreicht; letzte Kante "
+                        f"{eid} wird noch vollstaendig abgefahren.")
+                return
             if not self._done:
                 self._done = True
                 rospy.loginfo(
                     f"[explorer] MAPPING FERTIG — {len(self._gates)} Tore,"
                     f" {self.policy.sweep} Sweep(s).")
-            self._suggestion = ""
+            self._finishing_last_edge = False
             # Sofortigen Halt publizieren (bevor cbDecisionDone auf Lane setzt)
             self.pub_halt.publish(Bool(data=True))
             return
 
+        self._finishing_last_edge = False
         self._done = False
         if action != self._suggestion:
             rospy.loginfo(
@@ -241,13 +254,6 @@ class ExplorerNode:
                                           for edge in eg))
             else:
                 gates_complete = True  # kein expected_gates -> keine Bedingung
-
-            if gates_complete and not self._done:
-                self._done = True
-                rospy.loginfo(
-                    f"[explorer] ALLE TORE RICHTIG ZUGEORDNET ({len(self._validated_gates)})"
-                    f" — stoppe Erkundung.")
-                self.pub_halt.publish(Bool(data=True))
 
             self.pub_state.publish(String(data=json.dumps({
                 "sweep": self.policy.sweep,

@@ -17,7 +17,7 @@ Arm-Konvention (aus der Aufgabenstellung):
     "1 und 3 sind gegenueber, 2 ist immer rechts von 1, 4 links von 1"
     => Nummerierung im Uhrzeigersinn in der Draufsicht: 1,2,3,4.
 Faehrt man ueber Arm e IN die Kreuzung hinein (Blick Richtung Zentrum):
-    geradeaus -> Arm e+2   |   links -> Arm e+1   |   rechts -> Arm e-1
+    geradeaus -> Arm e+2   |   links -> Arm e-1   |   rechts -> Arm e+1
 (jeweils mod 4, 1-basiert).
 
 !!! FALLS auf der echten Strecke links/rechts vertauscht wirken, nur
@@ -62,7 +62,7 @@ def turn_to_exit_arm(entry_arm, action):
     if action == ACTION_FORWARD:
         return wrap_arm(e + 2 * sign)
     if action == ACTION_LEFT:
-        return e              # exit_arm = entry_arm (identitaet)
+        return wrap_arm(e - sign)
     if action == ACTION_RIGHT:
         return wrap_arm(e + sign)
     raise ValueError(f"unbekannte Action: {action!r}")
@@ -74,7 +74,7 @@ def exit_arm_to_turn(entry_arm, exit_arm):
     for action in TURN_ACTIONS:
         if turn_to_exit_arm(e, action) == x:
             return action
-    return None  # x == e waere eine Wende
+    return None  # x == e ist eine Wende
 
 
 # ---------------------------------------------------------------- CityGraph

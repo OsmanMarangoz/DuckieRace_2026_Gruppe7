@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <!-- One-window Wendehammer development environment.
+         Driving starts disabled and can only be enabled explicitly in the dashboard. -->
+    <arg name="drive_enabled" default="false" />
+    <arg name="publish_stop_when_disabled" default="false" />
+
+    <node
+        name="duckie_wendehammer_node"
+        pkg="follow_lane"
+        type="duckie_wendehammer_node.py"
+        output="screen">
+        <param name="drive_enabled" value="$(arg drive_enabled)" />
+        <param name="debug_enabled" value="true" />
+        <param name="publish_stop_when_disabled" value="$(arg publish_stop_when_disabled)" />
+    </node>
+
+    <node
+        name="duckie_wendehammer_dashboard"
+        pkg="follow_lane"
+        type="duckie_wendehammer_dashboard.py"
+        output="screen"
+        required="true" />
+</launch>

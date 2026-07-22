@@ -41,21 +41,24 @@ WEIGHTS = {
 
 
 def test_single_gate():
-    """Ein Gate -> leerer Pfad."""
+    """Ein Gate auf der aktuellen Startkante braucht keine Action."""
     g = CityGraph(GRAPH_DICT)
     p = Planner(g, {8: "B3-C4"}, WEIGHTS)
-    path = p.plan_path([8], "B", 3)
-    assert path == [(8, "B3-C4")], f"Erwartet [(8, B3-C4)], got {path}"
+    route = p.plan_route([8], "B", 3)
+    assert route["edges"] == ["B3-C4"], route
+    assert route["actions"] == [], route
     print("OK  test_single_gate")
 
 
 def test_two_direct_gates():
-    """Zwei Gates, die direkt benachbart sind."""
+    """Regression: Gate 7 und 8 sind direkt und fahrbar verbunden."""
     g = CityGraph(GRAPH_DICT)
     p = Planner(g, {7: "A1-B1", 8: "B3-C4"}, WEIGHTS)
-    path = p.plan_path([7, 8], "A", 1)
-    assert path is not None, "Pfad sollte gefunden werden"
-    assert len(path) == 2, f"2 Gates erwartet, got {len(path)}"
+    route = p.plan_route([7, 8], "A", 1)
+    assert route["edges"] == ["A1-B1", "B3-C4"], route
+    assert route["actions"] == ["move_forward"], route
+    assert route["steps"][0]["reason"] == "Tor 7 liegt auf der Startkante", route
+    assert route["steps"][1]["reason"] == "Tor 8 erreichen", route
     print("OK  test_two_direct_gates")
 
 
@@ -63,13 +66,57 @@ def test_multi_gate_path():
     """Mehrfache Gates durch den ganzen Graphen."""
     g = CityGraph(GRAPH_DICT)
     p = Planner(g, GATES, WEIGHTS)
-    path = p.plan_path([8, 9, 7, 10, 6], "A", 1)
-    assert path is not None, "Pfad sollte gefunden werden"
-    assert len(path) == 5, f"5 Gates erwartet, got {len(path)}"
-    # Alle Gates sollten im Pfad sein
-    gate_ids = [gid for gid, _ in path]
-    assert sorted(gate_ids) == sorted([8, 9, 7, 10, 6]), f"Gate-Reihenfolge stimmt nicht: {gate_ids}"
+    route = p.plan_route([8, 9, 7, 10, 6], "A", 1)
+    # Alle Gates sollten in der angeforderten Reihenfolge vorkommen.
+    gate_ids = route["gates"]
+    assert gate_ids == [8, 9, 7, 10, 6], f"Gate-Reihenfolge stimmt nicht: {gate_ids}"
+    assert len(route["actions"]) == len(route["edges"]) - 1, route
     print("OK  test_multi_gate_path")
+
+
+def test_arbitrary_start_can_reach_first_gate():
+    """Der Start muss nicht mehr auf der Kante des ersten Gates liegen."""
+    g = CityGraph(GRAPH_DICT)
+    p = Planner(g, GATES, WEIGHTS)
+    route = p.plan_route([8], "A", 1)
+    assert route["edges"] == ["A1-B1", "B3-C4"], route
+    assert route["actions"] == ["move_forward"], route
+    print("OK  test_arbitrary_start_can_reach_first_gate")
+
+
+def test_route_keeps_best_gate_exit_direction():
+    """Die globale Route darf an einem Gate nicht nur lokal greedy sein."""
+    weights = {
+        "A1-B1": 5.0,
+        "A2-C2": 19.0,
+        "A3-C1": 3.0,
+        "A4-B2": 9.0,
+        "B3-C4": 4.0,
+    }
+    g = CityGraph(GRAPH_DICT)
+    p = Planner(g, GATES, weights)
+    route = p.plan_route([9, 6], "A", 1)
+    assert route["edges"] == ["A1-B1", "B3-C4", "A3-C1", "A2-C2"], route
+    assert route["total_weight"] == 31.0, route
+    print("OK  test_route_keeps_best_gate_exit_direction")
+
+
+def test_gate_10_to_6_never_uses_uturn():
+    """Regression: B Arm 2 -> Arm 2 darf nicht als links gelten."""
+    g = CityGraph(GRAPH_DICT)
+    weights = dict(WEIGHTS)
+    weights["A1-B1"] = 10.0
+    weights["B3-C4"] = 1.0
+    p = Planner(g, GATES, weights)
+    route = p.plan_route([7, 8, 9, 10, 6], "A", 1)
+    edges = route["edges"]
+    assert all(a != b for a, b in zip(edges, edges[1:])), route
+    gate_10_index = edges.index(GATES[10])
+    assert edges[gate_10_index:gate_10_index + 3] == [
+        "A4-B2", "B3-C4", "A2-C2"], route
+    assert route["actions"][gate_10_index:gate_10_index + 2] == [
+        "turn_right", "move_forward"], route
+    print("OK  test_gate_10_to_6_never_uses_uturn")
 
 
 def test_start_validation_match():
@@ -100,7 +147,7 @@ def test_missing_gate():
     g = CityGraph(GRAPH_DICT)
     p = Planner(g, {7: "A1-B1"}, WEIGHTS)
     try:
-        p.plan_path([7, 99], "A", 1)
+        p.plan_route([7, 99], "A", 1)
         assert False, "Sollte ValueError geworfen haben"
     except ValueError as e:
         assert "99" in str(e), f"Fehlermeldung sollte Gate 99 enthalten: {e}"
@@ -111,8 +158,8 @@ def test_empty_sequence():
     """Leere Gate-Sequenz."""
     g = CityGraph(GRAPH_DICT)
     p = Planner(g, GATES, WEIGHTS)
-    path = p.plan_path([], "A", 1)
-    assert path == [], f"Leere Liste erwartet, got {path}"
+    route = p.plan_route([], "A", 1)
+    assert route["edges"] == [] and route["actions"] == [], route
     print("OK  test_empty_sequence")
 
 
@@ -120,8 +167,8 @@ def test_missing_weight_fallback():
     """Fehlende Kantengewichte -> Mittelwert."""
     g = CityGraph(GRAPH_DICT)
     p = Planner(g, {7: "A1-B1", 8: "B3-C4"}, {})  # keine Gewichte
-    path = p.plan_path([7, 8], "A", 1)
-    assert path is not None, "Pfad sollte mit Fallback gefunden werden"
+    route = p.plan_route([7, 8], "A", 1)
+    assert route["actions"] == ["move_forward"], route
     print("OK  test_missing_weight_fallback")
 
 
@@ -172,6 +219,9 @@ if __name__ == '__main__':
         test_single_gate,
         test_two_direct_gates,
         test_multi_gate_path,
+        test_arbitrary_start_can_reach_first_gate,
+        test_route_keeps_best_gate_exit_direction,
+        test_gate_10_to_6_never_uses_uturn,
         test_start_validation_match,
         test_start_validation_mismatch,
         test_missing_gate,

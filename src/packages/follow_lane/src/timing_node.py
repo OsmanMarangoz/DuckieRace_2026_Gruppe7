@@ -32,7 +32,6 @@ class TimingNode:
         self._last_msg_time = 0.0
         self._flush_interval = rospy.get_param("~flush_interval", 30.0)
         self._mapping_complete = False
-        self._saved = False  # einmal speichern, nicht mehrfach
 
         self.pub_stats = rospy.Publisher(
             f'/{self._vehicle_name}/mapping/edge_stats', String, queue_size=1)
@@ -68,9 +67,13 @@ class TimingNode:
 
         self._weights.setdefault(edge_id, [])
         self._weights[edge_id].append(seconds)
+        rospy.loginfo(
+            f"[timing_node] Kante {edge_id}: {seconds:.2f}s "
+            f"(Messung {len(self._weights[edge_id])})")
 
-        # Periodisches Speichern — nur nach Mapping-Fertig
-        if self._mapping_complete and not self._saved:
+        # Eine eventuell knapp nach dem Halt eintreffende letzte Messung muss
+        # die bereits geschriebene Datei noch aktualisieren.
+        if self._mapping_complete:
             self._save()
 
     def cb_mapping_complete(self, msg):
@@ -93,6 +96,11 @@ class TimingNode:
             rospy.loginfo(
                 f"[timing_node] Kantengewichte gespeichert: "
                 f"{len(weights)} Kanten -> {self._weights_file}")
+            for edge_id in sorted(weights):
+                rospy.loginfo(
+                    f"[timing_node] Gewicht {edge_id}: "
+                    f"{weights[edge_id]:.2f}s "
+                    f"({len(self._weights[edge_id])} Messung(en))")
         except OSError as e:
             rospy.logerr(f"[timing_node] Speichern fehlgeschlagen: {e}")
 

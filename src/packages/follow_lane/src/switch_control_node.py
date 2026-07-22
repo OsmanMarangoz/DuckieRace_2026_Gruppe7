@@ -34,6 +34,9 @@ class SwitchControlNode:
         self.sub_explorer_state = rospy.Subscriber(
             f"/{self._vehicle_name}/explore/state", String,
             self.cbExplorerState, queue_size=1)
+        self.sub_route_complete = rospy.Subscriber(
+            f"/{self._vehicle_name}/decision/route_complete", Bool,
+            self.cbRouteComplete, queue_size=1)
         self.pub_control = rospy.Publisher(
             f"/{self._vehicle_name}/switch/control", Int32, queue_size=1)
 
@@ -77,6 +80,13 @@ class SwitchControlNode:
                 rospy.loginfo("[switch] Mapping+Gates complete — STOPPING.")
                 self._control_mode = ControlType.Stop
                 self.pub_control.publish(Int32(data=ControlType.Stop.value))
+
+    def cbRouteComplete(self, msg):
+        """Phase B: erst am Ende der letzten Kante dauerhaft stoppen."""
+        if msg.data and self._control_mode != ControlType.Stop:
+            rospy.loginfo("[switch] Geplante Route vollstaendig — STOPPING.")
+            self._control_mode = ControlType.Stop
+            self.pub_control.publish(Int32(data=ControlType.Stop.value))
 
     def run(self):
         rate = rospy.Rate(10)

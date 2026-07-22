@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+
+    <!-- Chessboard camera calibration for Wendehammer undistortion.
+         Default pattern is 7x5 squares, i.e. 6x4 inner corners.
+
+         Watch:
+           /<vehicle>/debug/duckie_wendehammer/calibration/compressed
+           /<vehicle>/duckie_wendehammer/calibration_status
+
+         Optional commands:
+           rostopic pub /<vehicle>/duckie_wendehammer/calibration_command std_msgs/String '{"data":"{\"action\":\"capture\"}"}'
+           rostopic pub /<vehicle>/duckie_wendehammer/calibration_command std_msgs/String '{"data":"{\"action\":\"save\"}"}'
+    -->
+    <arg name="board_cols" default="6" />
+    <arg name="board_rows" default="4" />
+    <arg name="square_size" default="1.0" />
+    <arg name="required_samples" default="20" />
+    <arg name="auto_capture" default="true" />
+    <arg name="autosave" default="true" />
+    <arg name="output_path" default="/workspace/src/packages/follow_lane/data/camera_calibration_$(env VEHICLE_NAME).json" />
+
+    <node
+        name="duckie_wendehammer_calibration_node"
+        pkg="follow_lane"
+        type="duckie_wendehammer_calibration_node.py"
+        output="screen">
+        <param name="board_cols" value="$(arg board_cols)" />
+        <param name="board_rows" value="$(arg board_rows)" />
+        <param name="square_size" value="$(arg square_size)" />
+        <param name="required_samples" value="$(arg required_samples)" />
+        <param name="auto_capture" value="$(arg auto_capture)" />
+        <param name="autosave" value="$(arg autosave)" />
+        <param name="output_path" value="$(arg output_path)" />
+    </node>
+
+</launch>

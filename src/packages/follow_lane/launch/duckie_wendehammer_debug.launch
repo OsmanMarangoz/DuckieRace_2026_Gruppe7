@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+
+    <!-- Perception/planning-only launch.
+         Useful rqt_image_view topics:
+           /<vehicle>/debug/duckie_wendehammer/camera/compressed
+           /<vehicle>/debug/duckie_wendehammer/undistorted/compressed
+           /<vehicle>/debug/duckie_wendehammer/bev/compressed
+           /<vehicle>/debug/duckie_wendehammer/masks/compressed
+
+         Useful text topics:
+           /<vehicle>/duckie_wendehammer/state
+           /<vehicle>/duckie_wendehammer/debug_json
+    -->
+    <arg name="drive_enabled" default="false" />
+    <arg name="debug_enabled" default="true" />
+    <arg name="publish_stop_when_disabled" default="false" />
+
+    <node
+        name="duckie_wendehammer_node"
+        pkg="follow_lane"
+        type="duckie_wendehammer_node.py"
+        output="screen">
+        <param name="drive_enabled" value="$(arg drive_enabled)" />
+        <param name="debug_enabled" value="$(arg debug_enabled)" />
+        <param name="publish_stop_when_disabled" value="$(arg publish_stop_when_disabled)" />
+    </node>
+
+</launch>

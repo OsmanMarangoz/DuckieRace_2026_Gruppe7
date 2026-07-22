@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+
+    <!-- Standalone Wendehammer gap planner.
+         This node reads the camera image directly, undistorts it, detects duckies,
+         chooses the widest safe gap, and publishes very slow drive commands. -->
+    <!-- Deliberate opt-in: pass drive_enabled:=true only after validating debug output. -->
+    <arg name="drive_enabled" default="false" />
+    <arg name="debug_enabled" default="true" />
+    <arg name="publish_stop_when_disabled" default="false" />
+    <arg name="require_calibration_for_drive" default="true" />
+
+    <node
+        name="duckie_wendehammer_node"
+        pkg="follow_lane"
+        type="duckie_wendehammer_node.py"
+        output="screen">
+        <param name="drive_enabled" value="$(arg drive_enabled)" />
+        <param name="debug_enabled" value="$(arg debug_enabled)" />
+        <param name="publish_stop_when_disabled" value="$(arg publish_stop_when_disabled)" />
+        <param name="require_calibration_for_drive" value="$(arg require_calibration_for_drive)" />
+    </node>
+
+</launch>
