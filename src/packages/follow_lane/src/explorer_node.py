@@ -161,8 +161,8 @@ class ExplorerNode:
         exit_ = ((int(exit_arm) - 1) % 4) + 1
         if exit_ == entry:
             return None
-        # CLOCKWISE_NUMBERING = True
-        sign = 1
+        # CLOCKWISE_NUMBERING = False (Arme counterclockwise)
+        sign = -1
         if (exit_ - entry) % 4 == sign:
             return "turn_left"
         if (exit_ - entry) % 4 == (4 - sign):
@@ -179,6 +179,9 @@ class ExplorerNode:
         if pose.get("status") == "LOST":
             # Statt Vorschlag zu löschen: versuche Recovery
             visited = set(pose.get("visited", []))
+            # Wenn noch kein gültiger Zustand, keine Recovery möglich
+            if not pose.get("edge_id"):
+                return
             recovered = self._recover(
                 pose.get("to_node", ""), pose.get("to_arm", ""), visited)
             if recovered:
@@ -195,6 +198,10 @@ class ExplorerNode:
         if eid and eid != self._last_edge:
             self._last_edge = eid
             self.policy.note_edge(eid)
+
+        # Noch keine Lokalisierung verfuegbar -> keine Empfehlung
+        if not eid or pose.get("status") == "WAITING_FIRST_STOP":
+            return
 
         # Empfehlung fuer die NAECHSTE Kreuzung (to_node, Ankunft to_arm)
         exit_arm, action, reason = self.policy.decide(

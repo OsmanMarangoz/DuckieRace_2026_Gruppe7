@@ -290,33 +290,35 @@ class DetectLaneNode:
         rospy.loginfo("Shutting down. Closing video file...")
         if self.video_writer is not None and self.video_writer.isOpened():
             self.video_writer.release()
-        cv2.destroyAllWindows()
+        # cv2.destroyAllWindows()
 
     def run_debug(self):
         rospy.on_shutdown(self.fnShutDown)
         rate = rospy.Rate(10)
-        cv2.namedWindow('lane detection', cv2.WINDOW_NORMAL)
-        cv2.setWindowProperty('lane detection', cv2.WND_PROP_TOPMOST, 1)
+        # cv2 window disabled for headless operation
+        # cv2.namedWindow('lane detection', cv2.WINDOW_NORMAL)
+        # cv2.setWindowProperty('lane detection', cv2.WND_PROP_TOPMOST, 1)
 
         while not rospy.is_shutdown():
 
-            if self.display_image is not None:
-                cv2.imshow('lane detection', self.display_image)
+            # cv2 window disabled
+            # if self.display_image is not None:
+            #     cv2.imshow('lane detection', self.display_image)
 
-            key = cv2.waitKey(50) & 0xFF
-            if key == ord('r') or key == ord('R'):
-                if not self.video_record_enable:
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    self.video_out_path  = f"/workspace/src/videos/lane_{timestamp}.mp4"
-                    self.video_record_enable = True
-                    print(f"[VIDEO] Recording STARTED: {self.video_out_path}")
-            elif key == ord('q') or key == ord('Q'):
-                if self.video_record_enable:
-                    self.video_record_enable = False
-                    if self.video_writer is not None and self.video_writer.isOpened():
-                        self.video_writer.release()
-                        self.video_writer = None
-                    print(f"[VIDEO] Recording STOPPED")
+            # key = cv2.waitKey(50) & 0xFF
+            # if key == ord('r') or key == ord('R'):
+            #     if not self.video_record_enable:
+            #         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            #         self.video_out_path  = f"/workspace/src/videos/lane_{timestamp}.mp4"
+            #         self.video_record_enable = True
+            #         print(f"[VIDEO] Recording STARTED: {self.video_out_path}")
+            # elif key == ord('q') or key == ord('Q'):
+            #     if self.video_record_enable:
+            #         self.video_record_enable = False
+            #         if self.video_writer is not None and self.video_writer.isOpened():
+            #             self.video_writer.release()
+            #             self.video_writer = None
+            #         print(f"[VIDEO] Recording STOPPED")
 
             # Publish debug topics (only when subscribers are connected)
             if hasattr(self, 'img'):

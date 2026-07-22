@@ -28,7 +28,6 @@ RUN apt-get update && apt-get install -y \
 RUN sed -i 's/hosts:.*/hosts:          files mdns4_minimal [NOTFOUND=return] dns/' /etc/nsswitch.conf
 
 RUN pip3 install "numpy>=1.20,<1.25" opencv-python ultralytics
-
 # Build and install apriltag from source (supports tagStandard52h13 and all families)
 RUN git clone https://github.com/AprilRobotics/apriltag.git /tmp/apriltag_src && \
     cd /tmp/apriltag_src && \

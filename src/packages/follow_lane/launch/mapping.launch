@@ -41,7 +41,10 @@
         <param name="map_output" value="$(arg map_output)"/>
     </node>
 
-    <!-- Debug-Ausgabe im Terminal (automatisch) -->
-    <node name="mapping_debug_terminal" pkg="follow_lane" type="mapping_debug_overlay.py" output="screen"/>
+    <!-- Interaktive GUI -->
+    <node name="mapping_gui" pkg="follow_lane" type="mapping_gui.py" output="screen"/>
+
+    <!-- Debug-Ausgabe in RQT (optional, braucht X11/Display) -->
+    <!-- <node name="mapping_debug_terminal" pkg="follow_lane" type="mapping_debug_overlay.py" output="screen"/> -->
 
 </launch>

@@ -69,10 +69,7 @@ def test_arm_math():
         if inv is not None:
             check(turn_to_exit_arm(e, inv) == x,
                   f"inv2 e={e} x={x} inv={inv}")
-    # Wende (gegenueber) -> move_forward (mit CLOCKWISE_NUMBERING=False)
-    # exit_arm_to_turn(e, opposite) muss None sein, wenn es ein paar
-    # entry+action gibt, das auf den entgegengesetzten Arm fuehrt.
-    # Mit LEFT=Identity ist opposite == FORWARD.exit, also kein Wende-Fall.
+    # Wende (gegenueber) -> move_forward
     for e in (1, 2, 3, 4):
         opp = wrap_arm(e + 2)
         check(exit_arm_to_turn(e, opp) == ACTION_FORWARD,
@@ -160,7 +157,12 @@ def run_mapping_simulation(start_node, start_exit_arm, gate_edges, seed,
     for step in range(max_intersections):
         # --- an der Kreuzung ankommen -----------------------------------
         node, entry = bot.arrive()
-        tracker.on_stopping(bot.edge, last_tag_id=entry)
+        # Erster Stopp initialisiert den Tracker; folgende stoppen setzen
+        # AT_INTERSECTION.
+        if tracker.status == "WAITING_FIRST_STOP":
+            tracker.on_stopping(bot.edge)
+        else:
+            tracker.on_stopping(bot.edge, last_tag_id=entry)
 
         # Lokalisierung gegen Ground Truth pruefen
         p = tracker.pose_dict()
@@ -255,14 +257,17 @@ def test_desync_detection():
     print("[4] Desync-Erkennung")
     graph = CityGraph(CITY)
     t = GraphTracker(graph, "A", 1)
+    check(t.status == "WAITING_FIRST_STOP", "Tracker startet in WAITING_FIRST_STOP")
     t.on_stopping(graph.edge_from("A", 1))         # auf A1-B1, an B
+    check(t.status == "ON_EDGE", "erster Stopp -> ON_EDGE")
     t.on_action(ACTION_RIGHT)                       # B Eingang 1, rechts -> Arm 4
     check(t.status == "LOST", "unmoegliches Manoever -> LOST")
 
     t2 = GraphTracker(graph, "A", 1)
     t2.on_stopping(graph.edge_from("A", 1), last_tag_id=3)
+    # turn_right(1) mit CLOCKWISE_NUMBERING=False -> Arm 4 (B->A, A4-B2)
     t2.on_action(ACTION_RIGHT)
-    check(t2.pose_dict()["edge_id"] == "B3-C4" and t2.status == "ON_EDGE",
+    check(t2.pose_dict()["edge_id"] == "A4-B2" and t2.status == "ON_EDGE",
           "Tracking laeuft trotz Soft-Mismatch weiter")
 
 

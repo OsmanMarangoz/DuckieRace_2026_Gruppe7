@@ -6,7 +6,7 @@
   "runArgs": [
     "--network=host",
     "--privileged",
-    "--add-host=gundel.local:192.168.90.119"
+    "--add-host=gundel.local:192.168.90.229"
   ],
   "containerEnv": {
     "DISPLAY": "${localEnv:DISPLAY}",
