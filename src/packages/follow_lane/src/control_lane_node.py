@@ -69,7 +69,7 @@ class ControlLaneNode:
         self.lastError = error
 
         # Adaptive speed: slow down in curves
-        #self.v = self.MAX_VEL
+        #self.v = serlf.MAX_VEL
         self.v = 0.2
         self.a = correction
 

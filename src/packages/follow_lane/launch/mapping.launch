@@ -41,6 +41,14 @@
         <param name="map_output" value="$(arg map_output)"/>
     </node>
 
+    <!-- Timing-Node: Misst Kantengewichte waehrend des Mappings.
+         Gewichte werden in SEPARATER Datei gespeichert
+         (duckie_city_map_weights.json), die Map-Datei bleibt
+         unangetastet. -->
+    <node name="timing_node" pkg="follow_lane" type="timing_node.py" output="screen">
+        <param name="map_output" value="$(arg map_output)"/>
+    </node>
+
     <!-- Interaktive GUI -->
     <node name="mapping_gui" pkg="follow_lane" type="mapping_gui.py" output="screen"/>
 

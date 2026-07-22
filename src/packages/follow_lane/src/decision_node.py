@@ -24,8 +24,10 @@ from duckietown_msgs.msg import Twist2DStamped
 import os
 import random
 from std_msgs.msg import String
+import json
 
 from switch_control_node import ControlType
+import time
 
 
 class DecisionNode:
@@ -49,6 +51,7 @@ class DecisionNode:
         # NEU: Richtungsquelle ("random" = altes Verhalten)
         self._direction_source = rospy.get_param("~direction_source", "random")
         self._suggested_action = ""
+        self._last_edge_id = ""
 
         self.pub_cmd = rospy.Publisher(
             f'/{self._vehicle_name}/car_cmd_switch_node/cmd',
@@ -68,6 +71,23 @@ class DecisionNode:
             f'/{self._vehicle_name}/explore/suggested_action', String,
             self.cbSuggestedAction, queue_size=1)
 
+        # NEU: Timing fuer Kantengewichtung (wird vom Timing-Node gelesen)
+        self._last_action_time = None
+        self.pub_edge_time = rospy.Publisher(
+            f'/{self._vehicle_name}/mapping/edge_time', String, queue_size=1)
+
+        # NEU: Geplante Route vom Planner
+        self._planned_path = None
+        self._planner_done = False
+        self.sub_planned_path = rospy.Subscriber(
+            f'/{self._vehicle_name}/planned/path', String,
+            self.cbPlannedPath, queue_size=1)
+
+        # NEU: Lokalisierung abonnieren um Kante zu tracken (fuer Timing)
+        self.sub_pose = rospy.Subscriber(
+            f'/{self._vehicle_name}/mapping/pose', String,
+            self.cbLastEdge, queue_size=1)
+
         self.pub_action = rospy.Publisher(
             f'/{self._vehicle_name}/decision/action', String, queue_size=1)
 
@@ -85,6 +105,22 @@ class DecisionNode:
     def cbSuggestedAction(self, msg):                # NEU
         self._suggested_action = msg.data
 
+    def cbPlannedPath(self, msg):                    # NEU: geplaante Route
+        try:
+            data = json.loads(msg.data)
+        except (ValueError, TypeError):
+            return
+        self._planned_path = data.get("actions")
+        self._planner_done = data.get("done", False)
+        if self._planned_path is not None:
+            rospy.loginfo(f"[planner] Route empfangen: {len(self._planned_path)} Actions")
+
+    def cbLastEdge(self, msg):                       # NEU: letzte Kante merken
+        try:
+            self._last_edge_id = json.loads(msg.data).get("edge_id", "")
+        except (ValueError, TypeError):
+            pass
+
     def cbControlMode(self, msg):
         current_mode = msg.data
         triggered = (current_mode == ControlType.Obstacle.value
@@ -99,6 +135,16 @@ class DecisionNode:
 
     def choose_action(self, allowed):                # NEU: Auswahl gekapselt
         """Waehlt das Manoever aus der erlaubten Liste des Kreuzungstags."""
+        # GEPLANTE ROUTE zuerst pruefen
+        if self._planned_path is not None and not self._planner_done:
+            if len(self._planned_path) > 0:
+                action = self._planned_path.pop(0)
+                rospy.loginfo(f"[planner] Plane Action: '{action}'")
+                return action
+            else:
+                self._planner_done = True
+                rospy.loginfo("[planner] Route erschopft — Fallback auf Explorer.")
+
         if self._direction_source == "external":
             suggestion = self._suggested_action
             if suggestion in allowed:
@@ -128,6 +174,7 @@ class DecisionNode:
                 chosen = self.choose_action(self.ID_FUNCTIONS[tag_id])  # NEU
                 rospy.loginfo(f"Phase 2: executing '{chosen}' for tag ID {tag_id}")
                 self.pub_action.publish(String(data=chosen))
+                self._publish_edge_time(chosen)
                 if chosen == 'turn_left':
                     self.turn_left()
                 elif chosen == 'turn_right':
@@ -137,6 +184,7 @@ class DecisionNode:
             else:
                 rospy.loginfo(f"Phase 2: no valid tag (id={tag_id}) — skipping action")
                 self.pub_action.publish(String(data="skip"))
+                self._publish_edge_time("skip")
 
             self.pub_action.publish(String(data=""))
 
@@ -173,6 +221,19 @@ class DecisionNode:
 
     def move_forward(self):
         self.publish_cmd(v=0.20, omega=0.0, duration=2.1)
+
+    def _publish_edge_time(self, action):
+        """Publish time delta since last action + current edge."""
+        now = rospy.get_time()
+        if self._last_action_time is not None:
+            delta = now - self._last_action_time
+            payload = json.dumps({
+                "edge_id": self._last_edge_id,
+                "action": action,
+                "seconds": delta,
+            })
+            self.pub_edge_time.publish(String(data=payload))
+        self._last_action_time = now
 
     def run(self):
         rospy.spin()

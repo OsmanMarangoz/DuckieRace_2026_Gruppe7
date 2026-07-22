@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <!-- ================= Phase B: Weighted Planned Path =================
+         Startet den Planner und decision_node.
+         Der Planner liest Kantengewichte aus der Map-Datei (vom Timing-Node
+         waehrend des Mappings gesammelt) und berechnet die schnellste Route.
+         decision_node nutzt die geplante Route automatisch (vor dem Explorer).
+
+         STARTPOSITION (unabhaengig vom Mapping-Start):
+         Der Roboter MUSS auf der Kante des ersten Gates starten.
+         Beispiel: Gate 8 = B3-C4 -> start_plan_node=B, start_plan_exit_arm=3
+         -->
+
+    <arg name="start_plan_node" default="A"/>
+    <arg name="start_plan_exit_arm" default="1"/>
+    <arg name="gate_sequence" default="7 8 9 10 6"/>
+    <arg name="map_output" default="/tmp/duckie_city_map.json"/>
+
+    <!-- ==================== Driving-Stack (damit Roboter faehrt) ========= -->
+    <node name="detect_lane_node" pkg="follow_lane" type="detect_lane_node.py" output="screen"/>
+    <node name="detect_apriltag_node" pkg="follow_lane" type="detect_apriltag_node.py" output="screen"/>
+    <node name="switch_control_node" pkg="follow_lane" type="switch_control_node.py" output="screen"/>
+    <node name="control_lane_node" pkg="follow_lane" type="control_lane_node.py" output="screen"/>
+
+    <!-- decision_node mit direction_source=external -->
+    <node name="decision_node" pkg="follow_lane" type="decision_node.py" output="screen">
+        <param name="direction_source" value="external"/>
+    </node>
+
+    <!-- Planner-Node: berechne Route und wechsle auf Lane-Modus -->
+    <node name="planner_node" pkg="follow_lane" type="planner_node.py" output="screen">
+        <param name="start_plan_node" value="$(arg start_plan_node)"/>
+        <param name="start_plan_exit_arm" value="$(arg start_plan_exit_arm)"/>
+        <param name="gate_sequence" value="$(arg gate_sequence)"/>
+        <param name="map_output" value="$(arg map_output)"/>
+    </node>
+
+</launch>
