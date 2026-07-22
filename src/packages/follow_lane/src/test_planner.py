@@ -44,7 +44,7 @@ def test_single_gate():
     """Ein Gate -> leerer Pfad."""
     g = CityGraph(GRAPH_DICT)
     p = Planner(g, {8: "B3-C4"}, WEIGHTS)
-    path = p.plan_path([8])
+    path = p.plan_path([8], "B", 3)
     assert path == [(8, "B3-C4")], f"Erwartet [(8, B3-C4)], got {path}"
     print("OK  test_single_gate")
 
@@ -53,7 +53,7 @@ def test_two_direct_gates():
     """Zwei Gates, die direkt benachbart sind."""
     g = CityGraph(GRAPH_DICT)
     p = Planner(g, {7: "A1-B1", 8: "B3-C4"}, WEIGHTS)
-    path = p.plan_path([7, 8])
+    path = p.plan_path([7, 8], "A", 1)
     assert path is not None, "Pfad sollte gefunden werden"
     assert len(path) == 2, f"2 Gates erwartet, got {len(path)}"
     print("OK  test_two_direct_gates")
@@ -63,7 +63,7 @@ def test_multi_gate_path():
     """Mehrfache Gates durch den ganzen Graphen."""
     g = CityGraph(GRAPH_DICT)
     p = Planner(g, GATES, WEIGHTS)
-    path = p.plan_path([8, 9, 7, 10, 6])
+    path = p.plan_path([8, 9, 7, 10, 6], "A", 1)
     assert path is not None, "Pfad sollte gefunden werden"
     assert len(path) == 5, f"5 Gates erwartet, got {len(path)}"
     # Alle Gates sollten im Pfad sein
@@ -100,7 +100,7 @@ def test_missing_gate():
     g = CityGraph(GRAPH_DICT)
     p = Planner(g, {7: "A1-B1"}, WEIGHTS)
     try:
-        p.plan_path([7, 99])
+        p.plan_path([7, 99], "A", 1)
         assert False, "Sollte ValueError geworfen haben"
     except ValueError as e:
         assert "99" in str(e), f"Fehlermeldung sollte Gate 99 enthalten: {e}"
@@ -111,7 +111,7 @@ def test_empty_sequence():
     """Leere Gate-Sequenz."""
     g = CityGraph(GRAPH_DICT)
     p = Planner(g, GATES, WEIGHTS)
-    path = p.plan_path([])
+    path = p.plan_path([], "A", 1)
     assert path == [], f"Leere Liste erwartet, got {path}"
     print("OK  test_empty_sequence")
 
@@ -120,7 +120,7 @@ def test_missing_weight_fallback():
     """Fehlende Kantengewichte -> Mittelwert."""
     g = CityGraph(GRAPH_DICT)
     p = Planner(g, {7: "A1-B1", 8: "B3-C4"}, {})  # keine Gewichte
-    path = p.plan_path([7, 8])
+    path = p.plan_path([7, 8], "A", 1)
     assert path is not None, "Pfad sollte mit Fallback gefunden werden"
     print("OK  test_missing_weight_fallback")
 
@@ -139,7 +139,7 @@ def test_dijkstra_returns_edges():
     """Dijkstra gibt Liste von edge_ids zurueck."""
     g = CityGraph(GRAPH_DICT)
     p = Planner(g, GATES, WEIGHTS)
-    path = p._dijkstra("A1-B1", "B3-C4")
+    path = p._dijkstra(("A", 1), "B3-C4")
     assert path is not None, "Pfad sollte gefunden werden"
     assert all(isinstance(e, str) for e in path), "Alle Elemente sollten Strings sein"
     print("OK  test_dijkstra_returns_edges")

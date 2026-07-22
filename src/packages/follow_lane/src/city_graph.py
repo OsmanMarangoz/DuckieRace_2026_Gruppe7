@@ -125,6 +125,14 @@ class CityGraph:
         """(nachbar, dessen_arm) oder None, wenn an diesem Arm keine Strasse."""
         return self.city.get(node, {}).get(wrap_arm(arm))
 
+    def exit_arm(self, node, neighbor_node):
+        """Arm am Knoten `node`, der zu `neighbor_node` fuehrt.
+        Rueckgabe: Arm-Nummer (1..4) oder None."""
+        for arm, (nb, _) in self.city.get(node, {}).items():
+            if nb == neighbor_node:
+                return arm
+        return None
+
     def all_edge_ids(self):
         ids = set()
         for node, arms in self.city.items():

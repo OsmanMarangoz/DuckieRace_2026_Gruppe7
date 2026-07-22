@@ -20,7 +20,7 @@ import rospy
 from std_msgs.msg import String
 from duckietown_msgs.msg import Twist2DStamped
 
-from city_graph import CityGraph
+from city_graph import CityGraph, exit_arm_to_turn
 from planner import Planner
 from switch_control_node import ControlType
 
@@ -139,7 +139,7 @@ class PlannerNode:
 
         # Pfad planen
         try:
-            path = self.planner.plan_path(gate_sequence)
+            path = self.planner.plan_path(gate_sequence, self._start_node, self._start_arm)
         except ValueError as e:
             rospy.logerr(f"[planner] Planning fehlgeschlagen: {e}")
             self._publish_error(str(e))
@@ -150,18 +150,31 @@ class PlannerNode:
             self._publish_error("No path found")
             return
 
-        # Kanten in Actions umwandeln
-        all_edges = []
-        current_edge = None
+        # Kanten in Actions umwandeln (entry_arm bekannt aus plan_path)
+        action_list = []
+        cur_node = self._start_node
+        cur_exit_arm = self._start_arm
         for gate_id, target_edge in path:
-            if current_edge is not None:
-                seg = self.planner._dijkstra(current_edge, target_edge)
-                if seg:
-                    all_edges.extend(seg)
-            all_edges.append(target_edge)
-            current_edge = target_edge
-
-        actions, _ = self.planner.edges_to_actions(all_edges)
+            seg = self.planner._dijkstra((cur_node, cur_exit_arm), target_edge)
+            if seg:
+                for eid in seg:
+                    # Finde den exit_arm fuer diese Kante
+                    for (node, arm), e in self.planner._edge_map.items():
+                        if e == eid and node == cur_node:
+                            action_list.append(exit_arm_to_turn(cur_exit_arm, arm))
+                            cur_node = node
+                            cur_exit_arm = arm
+                            break
+            # Letzte Kante des Gates
+            for (node, arm), e in self.planner._edge_map.items():
+                if e == target_edge and node == cur_node:
+                    action_list.append(exit_arm_to_turn(cur_exit_arm, arm))
+                    cur_node = node
+                    cur_exit_arm = arm
+                    break
+            cur_node = self.planner._edge_to_node(target_edge)
+            cur_exit_arm = self.graph.exit_arm(
+                self.planner._edge_to_node(target_edge), cur_node)
         action_list = [a for a, _ in actions if a is not None]
 
         # Publizieren

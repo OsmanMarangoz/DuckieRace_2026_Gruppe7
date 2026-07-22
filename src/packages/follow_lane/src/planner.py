@@ -71,33 +71,34 @@ class Planner:
         # Z.B. "A1" -> "A", "B3" -> "B"
         return ''.join(c for c in node_part if not c.isdigit())
 
-    def _dijkstra(self, start_edge, target_edge):
+    def _dijkstra(self, start_state, target_edge):
         """Dijkstra-Kuerzester-Weg auf Kanten (gewichtet).
 
-        Suchzustand = (knoten, eingangs-arm), damit Wenden ausgeschlossen
+        start_state = (knoten, eingangs-arm), damit Wenden ausgeschlossen
         bleiben. Distanz = Summe der Kantengewichte (Zeit).
 
         Ziel: die Kante target_edge traversieren.
 
         Rueckgabe: Liste von edge_ids oder None wenn unerklich.
         """
-        if start_edge == target_edge:
-            return []
-
-        # Finde Startzustand: welchen Arm muss ich nehmen, um start_edge zu
-        # betreten? start_edge ist kanonisch ("Xn-Ym").
-        start_state = self._find_entry_state(start_edge)
         if start_state is None:
             return None
 
+        start_node, start_exit_arm = start_state
+
+        # Ziel erreicht? (start_node mit exit_arm == target_edge)
+        first_edge = self.graph.edge_from(start_node, start_exit_arm)
+        if first_edge and first_edge["edge_id"] == target_edge:
+            return []
+
         # Dijkstra
-        dist = {start_state: 0.0}
-        parent = {start_state: None}
-        heap = [(0.0, start_state)]
+        dist = {(start_node, start_exit_arm): 0.0}
+        parent = {(start_node, start_exit_arm): None}
+        heap = [(0.0, start_node, start_exit_arm)]
         visited = set()
 
         while heap:
-            d, (node, entry_arm) = heapq.heappop(heap)
+            d, node, entry_arm = heapq.heappop(heap)
             if (node, entry_arm) in visited:
                 continue
             visited.add((node, entry_arm))
@@ -124,16 +125,13 @@ class Planner:
 
                 weight = self._weight(e_id, exit_arm)
                 to_node = self._edge_to_node(e_id)
-                # Der Eingang am Naechstknoten ist der Ausgangsarm
-                # (weil der Graph ungerichtet ist: exit_arm am Knoten A
-                #  ist entry_arm am Knoten B)
                 to_entry_arm = exit_arm
                 neighbor = (to_node, to_entry_arm)
                 new_dist = d + weight
                 if neighbor not in dist or new_dist < dist[neighbor]:
                     dist[neighbor] = new_dist
                     parent[neighbor] = (node, entry_arm, exit_arm)
-                    heapq.heappush(heap, (new_dist, neighbor))
+                    heapq.heappush(heap, (new_dist, to_node, to_entry_arm))
 
         return None  # unerklich
 
@@ -146,9 +144,10 @@ class Planner:
 
     # --- Pfadplanung -------------------------------------------------------
 
-    def plan_path(self, gate_sequence):
+    def plan_path(self, gate_sequence, start_node, start_exit_arm):
         """Kuerzester Pfad durch Gate-Sequenz.
 
+        start_node / start_exit_arm = Position des Roboters.
         Rueckgabe: Liste von (gate_id, edge_id) Paaren oder None.
         """
         if not gate_sequence:
@@ -156,6 +155,8 @@ class Planner:
 
         result = []
         current_edge = None
+        cur_node = start_node
+        cur_exit_arm = start_exit_arm
 
         for gate_id in gate_sequence:
             target_edge = self.gate_to_edge.get(gate_id)
@@ -165,14 +166,30 @@ class Planner:
                     f"Fehlendes Gate oder falsche Map geladen?")
 
             if current_edge is not None:
-                path = self._dijkstra(current_edge, target_edge)
+                # Von cur_node mit cur_exit_arm zum Ziel
+                start_state = (cur_node, cur_exit_arm)
+                path = self._dijkstra(start_state, target_edge)
                 if path is None:
                     raise ValueError(
                         f"Gate {gate_id} ist nicht erreichbar von Gate "
                         f"{result[-1][0]}. Graph ist unzusammenhaengend.")
+            else:
+                # Erstes Gate: direkt vom Start aus suchen
+                start_state = (cur_node, cur_exit_arm)
+                path = self._dijkstra(start_state, target_edge)
+                if path is None:
+                    raise ValueError(
+                        f"Erstes Gate {gate_id} ist nicht erreichbar vom "
+                        f"Start ({cur_node}/{cur_exit_arm}).")
 
             current_edge = target_edge
-            result.append((gate_id, target_edge))
+            result.append((gate_id, current_edge))
+
+            # Wo landet die aktuelle Kante? Das ist der Naechstknoten.
+            next_node = self._edge_to_node(current_edge)
+            # entry_arm am Naechstknoten = Arm, der zurueck zu cur_node zeigt
+            cur_exit_arm = self.graph.exit_arm(cur_node, next_node)
+            cur_node = next_node
 
         return result
 
