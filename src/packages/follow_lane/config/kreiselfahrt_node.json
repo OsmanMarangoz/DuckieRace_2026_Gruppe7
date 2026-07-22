@@ -5,6 +5,7 @@
     "/debug/kreiselfahrt/yellow_virtual/compressed",
     "/debug/kreiselfahrt/control/compressed"
   ],
+  "duckie_model_path": "/workspace/src/packages/follow_lane/src/model/duckie_yolov8n_640.pt",
   "parameters": {
     "birdseye": {
       "size": {
@@ -83,6 +84,13 @@
         "max": 255
       }
     },
+    "ai_detection": {
+      "confidence": {
+        "default": 0.25,
+        "min": 0.05,
+        "max": 0.95
+      }
+    },
     "virtual_line": {
       "min_component_area": {
         "default": 20,
@@ -100,17 +108,17 @@
         "max": 40
       },
       "right_padding": {
-        "default": 5,
+        "default": 6,
         "min": 0,
         "max": 80
       },
       "lookahead_min_y": {
-        "default": 209,
+        "default": 255,
         "min": 0,
         "max": 350
       },
       "near_field_top": {
-        "default": 330,
+        "default": 350,
         "min": 200,
         "max": 399
       },
@@ -132,12 +140,12 @@
         "max": 399
       },
       "roi_right": {
-        "default": 300,
+        "default": 279,
         "min": 1,
         "max": 400
       },
       "roi_top": {
-        "default": 160,
+        "default": 242,
         "min": 0,
         "max": 399
       },
@@ -199,7 +207,7 @@
         "max": 10.0
       },
       "nominal_speed": {
-        "default": 0.12,
+        "default": 0.11,
         "min": 0.0,
         "max": 0.5
       },
@@ -214,17 +222,17 @@
         "max": 0.5
       },
       "search_omega": {
-        "default": 1.68,
+        "default": 1.69,
         "min": 0.0,
         "max": 5.0
       },
       "reacquire_countersteer_angle": {
-        "default": 0.38,
+        "default": 0.4,
         "min": 0.0,
         "max": 1.0
       },
       "reacquire_forward_distance": {
-        "default": 0.08,
+        "default": 0.07,
         "min": 0.0,
         "max": 0.5
       },

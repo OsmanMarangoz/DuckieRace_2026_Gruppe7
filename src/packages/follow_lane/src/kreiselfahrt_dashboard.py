@@ -70,6 +70,13 @@ PARAMETER_GROUPS = [
                     ("vh", "V max", "", "Höchste erlaubte Helligkeit. Meist auf 255 lassen; kleiner kann stark überbelichtete Stellen ausblenden."),
                 ],
             ),
+            (
+                "ai_detection",
+                "Optionale Duckie-KI",
+                [
+                    ("confidence", "Duckie-Schwellwert", "", "Mindest-Konfidenz des alten Wendehammer-Modells. Der Regler wirkt nur bei aktivierter Duckie-KI. Größer = weniger, aber sicherere Erkennungen; kleiner = mehr mögliche Duckies und mehr Fehlalarme."),
+                ],
+            ),
         ],
     ),
     (
@@ -82,11 +89,11 @@ PARAMETER_GROUPS = [
                     ("min_component_area", "Minimale Fläche", "px²", "Kleinste gelbe Fläche, die benutzt wird. Erhöhen ignoriert kleine gelbe Flecken und Bildrauschen. Benutzte Flächen haben im Bild „Rohe Gelbmaske“ einen grünen Rahmen, verworfene einen roten oder orangefarbenen Rahmen."),
                     ("segment_length", "Segmentlänge", "px", "Mindestlänge der erzeugten gelben virtuellen Linie. Größer verbindet kurze oder unterbrochene gelbe Stücke über eine längere Strecke."),
                     ("line_width", "Linienbreite", "px", "Dicke der gelben virtuellen Linie im Bild „Virtuelle Gelblinie“. Beeinflusst vor allem, in wie vielen Bildzeilen eine Messung gefunden wird."),
-                    ("right_padding", "Abstand rechts", "px", "Setzt die gelbe virtuelle Grenze weiter rechts neben eine erkannte Fläche. Größer lässt Daffy mehr Abstand rechts vom Duckie und lenkt früher nach rechts."),
+                    ("right_padding", "Abstand rechts", "px", "Setzt die gelbe virtuelle Grenze weiter rechts neben eine erkannte Fläche. Größer lässt Daisy mehr Abstand rechts vom Duckie und lenkt früher nach rechts."),
                     ("lookahead_min_y", "Vorschau beginnt ab Y", "px", "Obere orange Linie im virtuellen Bild. Gelb oberhalb dieser Linie ist weit weg und wird nicht zur Lenkung benutzt. Erhöhen = mehr weit entferntes Gelb ignorieren; verringern = früher nach vorn schauen."),
                     ("near_field_top", "Nahschutz ab Y", "px", "Untere orange Linie im virtuellen Bild. Unterhalb davon werden schmale Linien ignoriert; nur breite Duckie-Flächen bleiben als Nahschutz aktiv. Größer verschiebt die Linie nach unten und verkleinert den Nahbereich."),
                     ("near_field_min_aspect_ratio", "Min. Duckie-Breite/Höhe", "", "Bestimmt, wie breit eine gelbe Fläche im Verhältnis zu ihrer Höhe sein muss, damit sie unten im Bild als Duckie gilt. Größer = nur deutlich breitere Flächen werden als Duckie-Nahschutz erkannt."),
-                    ("near_field_extra_padding", "Zusätzlicher Nahabstand", "px", "Zusätzlicher Sicherheitsabstand rechts neben einem nahen Duckie. Größer hält Daffy länger rechts und verhindert ein zu frühes Einschlagen nach links. Nahschutz-Flächen sind cyan markiert."),
+                    ("near_field_extra_padding", "Zusätzlicher Nahabstand", "px", "Zusätzlicher Sicherheitsabstand rechts neben einem nahen Duckie. Größer hält Daisy länger rechts und verhindert ein zu frühes Einschlagen nach links. Nahschutz-Flächen sind cyan markiert."),
                 ],
             )
         ],
@@ -102,12 +109,12 @@ PARAMETER_GROUPS = [
                     ("roi_right", "Messbereich rechts", "px", "Rechter Rand des blauen Messrahmens. Gelb und Duckies rechts außerhalb des Rahmens werden ignoriert. Verkleinern, wenn ein weit rechts stehendes Duckie nicht als Linie gelten soll."),
                     ("roi_top", "Messbereich oben", "px", "Oberer Rand des blauen Messrahmens. Erhöhen blendet mehr vom weit entfernten oberen Bildbereich aus."),
                     ("roi_bottom", "Messbereich unten", "px", "Unterer Rand des blauen Messrahmens. Verkleinern blendet mehr vom sehr nahen unteren Bildbereich aus."),
-                    ("target_x", "Gewünschte Gelbposition", "px", "Grüne senkrechte Linie in der Regelansicht. Daffy lenkt so, dass die geglättete magentafarbene Grenze auf diese grüne Ziellinie kommt. Größer verschiebt das Ziel nach rechts."),
+                    ("target_x", "Gewünschte Gelbposition", "px", "Grüne senkrechte Linie in der Regelansicht. Daisy lenkt so, dass die geglättete magentafarbene Grenze auf diese grüne Ziellinie kommt. Größer verschiebt das Ziel nach rechts."),
                     ("min_row_coverage", "Minimale Zeilenabdeckung", "", "Wie viel vom Messbereich eine gelbe virtuelle Linie mindestens abdecken muss. Beispiel: 0,15 bedeutet 15 %. Größer verhindert TRACK bei kurzen Flecken, kann Gelb aber später erkennen."),
                     ("boundary_percentile", "Kantenperzentil", "%", "Bestimmt aus den weißen Messpunkten die orange Rohgrenze. Größer bevorzugt Punkte weiter rechts und reagiert stärker auf rechts liegende Duckies; kleiner folgt eher der normalen gelben Linie."),
                     ("smoothing_alpha", "Glättung", "", "Wie stark der neueste orange Messwert die magentafarbene geglättete Grenze verändert. Nahe 1 = schnell, aber unruhiger. Nahe 0 = ruhig, aber langsamer."),
-                    ("hold_seconds", "Lücke überbrücken", "s", "Zeit im Zustand HOLD, wenn Gelb kurz verschwindet. Daffy benutzt dabei die letzte magentafarbene Grenze. Größer überbrückt längere Lücken, kann aber länger einer alten Richtung folgen."),
-                    ("duckie_memory_seconds", "Duckie links merken", "s", "Wie lange Daffy nach dem Verschwinden eines nahen Duckies unten links mit HOLD-Tempo geradeaus fährt, wenn kein weiteres nutzbares Gelb sichtbar ist. Danach beginnt SEARCH. 0 deaktiviert die Funktion."),
+                    ("hold_seconds", "Lücke überbrücken", "s", "Zeit im Zustand HOLD, wenn Gelb kurz verschwindet. Daisy benutzt dabei die letzte magentafarbene Grenze. Größer überbrückt längere Lücken, kann aber länger einer alten Richtung folgen."),
+                    ("duckie_memory_seconds", "Duckie links merken", "s", "Wie lange Daisy nach dem Verschwinden eines nahen Duckies unten links mit HOLD-Tempo geradeaus fährt, wenn kein weiteres nutzbares Gelb sichtbar ist. Danach beginnt SEARCH. 0 deaktiviert die Funktion."),
                     ("reacquire_frames", "Wiedererkennungsframes", "", "So viele gültige Kamerabilder hintereinander müssen Gelb zeigen, bevor SEARCH endet. Kleiner = schnellere Reaktion; größer = weniger Reaktion auf einzelne falsche gelbe Flecken."),
                 ],
             )
@@ -120,15 +127,15 @@ PARAMETER_GROUPS = [
                 "control",
                 "Regler",
                 [
-                    ("p", "P", "", "Direkte Lenkstärke für den aktuellen Abstand zwischen grüner Ziellinie und magentafarbener Grenze. Größer = Daffy lenkt sofort stärker, kann aber pendeln."),
+                    ("p", "P", "", "Direkte Lenkstärke für den aktuellen Abstand zwischen grüner Ziellinie und magentafarbener Grenze. Größer = Daisy lenkt sofort stärker, kann aber pendeln."),
                     ("i", "I", "", "Korrigiert einen kleinen Fehler, der längere Zeit bestehen bleibt. Nur vorsichtig erhöhen: zu groß führt zu langsamem Aufschaukeln und Überschwingen."),
                     ("d", "D", "", "Bremst schnelle Änderungen des Regelfehlers. Größer kann Pendeln dämpfen, reagiert aber stärker auf unruhige Bildmessungen."),
                     ("nominal_speed", "TRACK-Tempo", "m/s", "Vorwärtsgeschwindigkeit im grünen Zustand TRACK, wenn Gelb sicher erkannt wird. Für erste Tests niedrig einstellen."),
                     ("reduced_speed", "HOLD-Tempo", "m/s", "Langsamere Vorwärtsgeschwindigkeit im orangefarbenen Zustand HOLD, wenn Gelb nur kurz fehlt."),
                     ("search_speed", "SEARCH-Tempo", "m/s", "Vorwärtsgeschwindigkeit im orangefarbenen Zustand SEARCH. Zusammen mit SEARCH-Drehung bestimmt sie die Größe des Linksbogens: weniger Tempo ergibt bei gleicher Drehung einen engeren Bogen."),
                     ("search_omega", "SEARCH-Drehung", "rad/s", "Drehgeschwindigkeit nach links in SEARCH. Größer = engerer Linksbogen. Derselbe Betrag wird während COUNTERSTEER nach rechts verwendet."),
-                    ("reacquire_countersteer_angle", "Gegenlenkwinkel nach SEARCH", "rad", "Violette Phase COUNTERSTEER nach bestätigter Gelb-Wiedererkennung: Daffy hält an und dreht um diesen Winkel nach rechts. 0 deaktiviert die Korrektur; 0,20 rad sind ungefähr 11,5 Grad."),
-                    ("reacquire_forward_distance", "Geradeausweg nach Gegenlenken", "m", "Geschätzte Strecke, die Daffy nach COUNTERSTEER mit gerader Lenkung fährt, bevor der TRACK-Regler wieder übernimmt. Die Strecke wird aus Tempo und Zeit geschätzt; 0 deaktiviert die Phase."),
+                    ("reacquire_countersteer_angle", "Gegenlenkwinkel nach SEARCH", "rad", "Violette Phase COUNTERSTEER nach bestätigter Gelb-Wiedererkennung: Daisy hält an und dreht um diesen Winkel nach rechts. 0 deaktiviert die Korrektur; 0,20 rad sind ungefähr 11,5 Grad."),
+                    ("reacquire_forward_distance", "Geradeausweg nach Gegenlenken", "m", "Geschätzte Strecke, die Daisy nach COUNTERSTEER mit gerader Lenkung fährt, bevor der TRACK-Regler wieder übernimmt. Die Strecke wird aus Tempo und Zeit geschätzt; 0 deaktiviert die Phase."),
                     ("reacquire_forward_speed", "Geradeaustempo nach Gegenlenken", "m/s", "Konstantes Tempo in RECOVERY_FORWARD. Zusammen mit dem Geradeausweg bestimmt es die Dauer der Stabilisierungsphase. Niedrig beginnen und aufgebockt testen."),
                     ("max_omega", "Maximale Drehung", "rad/s", "Sicherheitsgrenze für die Drehgeschwindigkeit des PID-Reglers und der Suchbewegungen. Kleinere Werte begrenzen alle Lenkbewegungen stärker."),
                     ("integral_limit", "Integralgrenze", "", "Begrenzt, wie viel sich der I-Anteil merken darf. Kleiner verhindert starkes Nachlenken nach einem länger anhaltenden Fehler."),
@@ -138,7 +145,7 @@ PARAMETER_GROUPS = [
                 "safety",
                 "Sicherheit und Last",
                 [
-                    ("camera_timeout", "Kamera-Timeout", "s", "Maximal erlaubtes Alter des letzten Kamerabildes. Ist das Bild länger weg, wird CAMERA_STALE rot angezeigt und Daffy bekommt ein Stoppkommando."),
+                    ("camera_timeout", "Kamera-Timeout", "s", "Maximal erlaubtes Alter des letzten Kamerabildes. Ist das Bild länger weg, wird CAMERA_STALE rot angezeigt und Daisy bekommt ein Stoppkommando."),
                     ("command_rate", "Kommandorate", "Hz", "Wie oft pro Sekunde Fahr- oder Stoppbefehle gesendet werden. Normalerweise nicht ändern; höher belastet ROS stärker."),
                     ("debug_rate", "Dashboard-Bildrate", "Hz", "Höchste Bildrate der vier Dashboard-Ansichten. Kleiner entlastet Rechner und Netzwerk, verändert aber nicht die eigentliche Kameraverarbeitung."),
                 ],
@@ -150,18 +157,19 @@ PARAMETER_GROUPS = [
 
 IMAGE_PANELS = [
     ("camera", "Kamera und Bird's-Eye-Ausschnitt", "camera"),
-    ("yellow_raw", "Rohe Gelbmaske", "yellow_raw"),
+    ("yellow_raw", "Erkennungsmaske", "yellow_raw"),
     ("yellow_virtual", "Virtuelle Gelblinie", "yellow_virtual"),
     ("control", "Regelansicht", "control"),
 ]
 
 IMAGE_PANEL_TOOLTIPS = {
     "camera": (
-        "Originalbild von Daffy. Das hellblaue Viereck zeigt den Bereich, der für die "
+        "Originalbild von Daisy. Das hellblaue Viereck zeigt den Bereich, der für die "
         "Bird's-Eye-Ansicht geradegezogen wird. Seine Ecken stellst du unter „Perspektive“ ein."
     ),
     "yellow_raw": (
-        "Gelb eingefärbt = von der HSV-Maske erkannt. Grüner Rahmen = wird benutzt; "
+        "Gelb eingefärbt = aktuelle Maske: standardmäßig HSV, im KI-Modus zusätzlich "
+        "die farbunabhängig erkannten Duckie-Boxen. Grüner Rahmen = wird benutzt; "
         "cyanfarbener Rahmen = nahes Duckie mit Sicherheitsabstand; orange = wegen Entfernung "
         "oder Nahbereich ignoriert; rot = zu klein oder außerhalb des Messbereichs."
     ),
@@ -201,6 +209,7 @@ class KreiselfahrtDashboard(QMainWindow):
         self._parameters = self._config["parameters"]
         self._dirty = False
         self._drive_enabled = False
+        self._ai_detection_enabled = False
         self._closing = False
         self._data_lock = threading.Lock()
         self._pending_images = {}
@@ -212,6 +221,10 @@ class KreiselfahrtDashboard(QMainWindow):
         )
         self._enable_service_name = f"/{self._vehicle_name}/kreiselfahrt/set_enabled"
         self._enable_service = rospy.ServiceProxy(self._enable_service_name, SetBool)
+        self._ai_enable_service_name = (
+            f"/{self._vehicle_name}/kreiselfahrt/set_ai_detection"
+        )
+        self._ai_enable_service = rospy.ServiceProxy(self._ai_enable_service_name, SetBool)
 
         debug_base = f"/{self._vehicle_name}/debug/kreiselfahrt"
         self._subscribers = [
@@ -285,6 +298,7 @@ class KreiselfahrtDashboard(QMainWindow):
         status_layout = QGridLayout(status_group)
         status_names = [
             ("state", "Fahrstatus"),
+            ("detection_mode", "Erkennung"),
             ("tracking_state", "Gelb-Tracking"),
             ("confidence", "Gelb-Konfidenz"),
             ("yellow_age", "Gelb zuletzt gesehen"),
@@ -302,6 +316,16 @@ class KreiselfahrtDashboard(QMainWindow):
             status_layout.addWidget(value, row, 1)
             self._status_labels[key] = value
         control_layout.addWidget(status_group)
+
+        self._ai_button = QPushButton("Duckie-KI aktivieren")
+        self._ai_button.setMinimumHeight(42)
+        self._ai_button.setToolTip(
+            "Schaltet nur die zusätzliche, farbunabhängige Duckie-Erkennung um. "
+            "Die gelbe Linie und der Standardmodus bleiben HSV-basiert."
+        )
+        self._ai_button.clicked.connect(self._toggle_ai_detection)
+        control_layout.addWidget(self._ai_button)
+        self._update_ai_button(False)
 
         self._drive_button = QPushButton("Fahrt starten")
         self._drive_button.setMinimumHeight(52)
@@ -512,9 +536,20 @@ class KreiselfahrtDashboard(QMainWindow):
         if state:
             self._drive_enabled = bool(state.get("enabled", False))
             self._update_drive_button(self._drive_enabled)
+            self._ai_detection_enabled = bool(state.get("ai_detection_enabled", False))
+            self._update_ai_button(self._ai_detection_enabled)
             mode = state.get("state") or "—"
             tracking_mode = state.get("tracking_state") or "—"
             self._status_labels["state"].setText(str(mode))
+            if self._ai_detection_enabled:
+                detection_text = "KI-Duckies + HSV-Linie"
+                detection_text += f" ({int(state.get('ai_duckie_count', 0))})"
+            else:
+                detection_text = "HSV (Standard)"
+            detector_status = state.get("ai_detector_status")
+            if detector_status and detector_status not in ("not_loaded", "loaded"):
+                detection_text += f" · {detector_status}"
+            self._status_labels["detection_mode"].setText(detection_text)
             self._status_labels["tracking_state"].setText(str(tracking_mode))
             self._status_labels["confidence"].setText(f"{float(state.get('confidence', 0.0)) * 100:.0f} %")
             self._status_labels["yellow_age"].setText(self._seconds_text(state.get("yellow_age")))
@@ -569,6 +604,28 @@ class KreiselfahrtDashboard(QMainWindow):
             if answer != QMessageBox.Yes:
                 return
         self._set_drive(target)
+
+    def _toggle_ai_detection(self):
+        target = not self._ai_detection_enabled
+        try:
+            rospy.wait_for_service(self._ai_enable_service_name, timeout=1.0)
+            response = self._ai_enable_service(bool(target))
+            if not response.success:
+                raise RuntimeError(response.message)
+            self._ai_detection_enabled = target
+            self._update_ai_button(target)
+        except Exception as error:
+            QMessageBox.critical(self, "Duckie-KI konnte nicht umgeschaltet werden", str(error))
+
+    def _update_ai_button(self, enabled):
+        if enabled:
+            self._ai_button.setText("Duckie-KI AKTIV – nur HSV verwenden")
+            self._ai_button.setStyleSheet(
+                "QPushButton { background: #276a8f; color: white; font-weight: bold; }"
+            )
+        else:
+            self._ai_button.setText("Duckie-KI aktivieren")
+            self._ai_button.setStyleSheet("")
 
     def _set_drive(self, enabled, show_errors=True):
         try:

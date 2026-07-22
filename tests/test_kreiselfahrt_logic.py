@@ -24,6 +24,7 @@ from kreiselfahrt_logic import (  # noqa: E402
     STATE_TRACK,
     KreiselfahrtFollower,
 )
+from kreiselfahrt_duckie_detector import DuckieYoloDetector  # noqa: E402
 
 
 def load_parameters():
@@ -77,6 +78,29 @@ class KreiselfahrtLogicTest(unittest.TestCase):
         self.assertGreater(result.boundary_x_raw, self.follower.settings.target_x)
         self.assertLess(result.error, 0.0)
         self.assertLess(result.omega, 0.0)
+
+    def test_ai_duckie_box_uses_the_same_virtual_line_logic(self):
+        mask = DuckieYoloDetector.boxes_to_mask(
+            (self.size, self.size, 3), [(160, 270, 210, 325)]
+        )
+
+        result = self.reach_track(mask)
+
+        self.assertEqual(result.state, STATE_TRACK)
+        self.assertEqual(len(result.components), 1)
+        self.assertTrue(result.components[0].accepted)
+        self.assertGreater(result.boundary_x_raw, self.follower.settings.target_x)
+        self.assertLess(result.omega, 0.0)
+
+    def test_ai_duckie_box_mask_clips_to_the_image(self):
+        mask = DuckieYoloDetector.boxes_to_mask(
+            (20, 30, 3), [(-10, -5, 8, 9), (40, 40, 50, 50)]
+        )
+
+        self.assertEqual(mask.shape, (20, 30))
+        self.assertEqual(mask.dtype, np.uint8)
+        self.assertEqual(int(mask[0, 0]), 255)
+        self.assertEqual(int(mask[19, 29]), 0)
 
     def test_near_left_duckie_holds_back_left_turn(self):
         mask = self.empty_mask()

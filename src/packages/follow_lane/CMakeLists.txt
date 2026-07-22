@@ -19,6 +19,7 @@ catkin_install_python(PROGRAMS
 
 install(FILES
   src/kreiselfahrt_logic.py
+  src/kreiselfahrt_duckie_detector.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
