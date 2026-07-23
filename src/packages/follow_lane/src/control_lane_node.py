@@ -70,7 +70,7 @@ class ControlLaneNode:
 
         # Adaptive speed: slow down in curves
         #self.v = serlf.MAX_VEL
-        self.v = 0.2
+        self.v = 0.35
         self.a = correction
 
     def fnShutDown(self):

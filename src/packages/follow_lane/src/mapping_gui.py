@@ -56,25 +56,23 @@ def load_graph_from_config():
 
 
 def auto_layout_nodes(nodes):
-    """Berechnet Positionen fuer alle Knoten. Skaliert fuer groesseres Fenster."""
-    nodes = sorted(nodes)
-    n = len(nodes)
-    positions = {}
-
-    if n == 3:
-        # Dreieck: A oben, B unten links, C unten rechts
-        positions["A"] = (300, 100)
-        positions["B"] = (60, 400)
-        positions["C"] = (500, 400)
-    else:
-        cx, cy = 200, 250
-        radius = 180
-        for i, node in enumerate(nodes):
-            angle = 2 * 3.14159 * i / n - 3.14159 / 2
-            x = int(cx + radius * 0.9 * (i % 2))
-            y = int(cy + radius * 0.6 * ((i + 1) % 3 - 1))
-            positions[node] = (x, y)
-
+    """Fixe Positionen fuer den 9-Knoten Stadtgraph (D-A H-E-B I-F-C G Layout)."""
+    # Layout:
+    #   D   A
+    # H  E  B
+    # I  F  C
+    #   G
+    positions = {
+        "A": (550, 100),
+        "B": (550, 220),
+        "C": (550, 380),
+        "D": (300, 100),
+        "E": (300, 220),
+        "F": (300, 380),
+        "G": (300, 500),
+        "H": (100, 220),
+        "I": (100, 380),
+    }
     return positions
 
 
@@ -105,14 +103,32 @@ class MappingGUI:
         self.suggested_action = ""
         self.complete = False
 
+        self._weights = {}
+
         rospy.Subscriber(f"{self.prefix}/mapping/pose", String, self._cb_pose)
         rospy.Subscriber(f"{self.prefix}/mapping/gates", String, self._cb_gates)
         rospy.Subscriber(f"{self.prefix}/explore/state", String, self._cb_explore)
         rospy.Subscriber(f"{self.prefix}/explore/suggested_action", String, self._cb_suggested)
         rospy.Subscriber(f"{self.prefix}/mapping/complete", Bool, self._cb_complete)
+        rospy.Subscriber(f"{self.prefix}/mapping/edge_stats", String, self._cb_edge_stats)
 
         self._setup_ui()
+        self._weights = self._load_weights()
         rospy.loginfo("[mapping_gui] Mapping GUI started")
+
+    def _load_weights(self):
+        """Ladet Kantengewichte aus der weights-Datei des timing_node."""
+        weights_file = os.environ.get("MAP_WEIGHTS_FILE", "/tmp/duckie_city_map_weights.json")
+        try:
+            with open(weights_file, 'r') as f:
+                return json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return {}
+
+    def _cb_edge_stats(self, msg):
+        """Ladet die aktuellen Gewichte neu, wenn neue Stats empfangen werden."""
+        self._weights = self._load_weights()
+        self._update_gate_list()
 
     def _setup_ui(self):
         """Erstellt das UI-Layout."""
@@ -153,7 +169,7 @@ class MappingGUI:
         self.action_val.pack(side="left", padx=10)
 
         # Graph Canvas
-        self.canvas = tk.Canvas(left_frame, width=640, height=620, bg="#16213e", highlightthickness=0)
+        self.canvas = tk.Canvas(left_frame, width=700, height=630, bg="#16213e", highlightthickness=0)
         self.canvas.pack(padx=0, pady=10)
 
         # ── Rechte Seite: Tor-Liste ──
@@ -214,7 +230,16 @@ class MappingGUI:
                 entry_frame, text=edge_id,
                 font=tkfont.Font(family="Monospace", size=14),
                 fg="#ddd", bg="#1a1a2e"
-            ).pack(side="left")
+            ).pack(side="left", padx=(0, 10))
+
+            # Kantengewicht (falls vorhanden)
+            weight = self._weights.get(edge_id)
+            if weight is not None:
+                tk.Label(
+                    entry_frame, text=f"{float(weight):.1f}s",
+                    font=tkfont.Font(family="Monospace", size=12),
+                    fg="#888", bg="#1a1a2e"
+                ).pack(side="left")
 
     def _draw_graph(self):
         """Zeichnet den Graphen neu."""
@@ -273,6 +298,19 @@ class MappingGUI:
                 my = (y1 + y2) / 2 + oy * 1.2 - 8
                 self.canvas.create_text(mx, my, text=edge_id, fill="#888", font=("Monospace", 11))
 
+                # Kantengewicht (falls vorhanden)
+                weight = self._weights.get(edge_id)
+                if weight is not None:
+                    wt = float(weight)
+                    # Farbskala: blau (schnell) -> gruen -> rot (langsam)
+                    max_t = max(wt, 5.0)  # Skala bis ~5s
+                    ratio = min(wt / max_t, 1.0)
+                    r = int(100 + 155 * ratio)
+                    g = int(200 - 100 * ratio)
+                    b = int(255 - 200 * ratio)
+                    wt_color = f"#{r:02x}{g:02x}{b:02x}"
+                    self.canvas.create_text(mx, my + 16, text=f"{wt:.1f}s", fill=wt_color, font=("Monospace", 10))
+
         # Knoten zeichnen (grosser)
         node_radius = 35
         for node, (x, y) in NODE_POSITIONS.items():
@@ -285,6 +323,9 @@ class MappingGUI:
 
             text_color = "#000" if is_current else "#ddd"
             self.canvas.create_text(x, y, text=node, fill=text_color, font=("Helvetica", 26, "bold"))
+
+        # Legende unten
+        self.canvas.create_text(350, 610, text="Kantengewichte: blau=schnell → rot=langsam", fill="#666", font=("Monospace", 10))
 
     def _update(self):
         """Aktualisiert alle Anzeigen."""

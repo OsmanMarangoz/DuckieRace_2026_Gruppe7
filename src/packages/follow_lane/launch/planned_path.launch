@@ -13,9 +13,9 @@
          Beispiel: B/3 bedeutet auf B3-C4 in Richtung C.
          -->
 
-    <arg name="start_plan_node" default="A"/>
-    <arg name="start_plan_exit_arm" default="1"/>
-    <arg name="gate_sequence" default="7 8 9 10 6"/>
+    <arg name="start_plan_node" default="H"/>
+    <arg name="start_plan_exit_arm" default="3"/>
+    <arg name="gate_sequence" default="6 7 8 9 10"/>
     <arg name="map_output" default="/tmp/duckie_city_map.json"/>
 
     <!-- ==================== Driving-Stack (damit Roboter faehrt) ========= -->

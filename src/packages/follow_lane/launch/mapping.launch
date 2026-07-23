@@ -11,7 +11,7 @@
          zwar VON <start_node> WEGfahrend. Beispiel unten: Strasse A1-B1,
          Fahrtrichtung A -> B.                                          -->
 
-    <arg name="start_node" default="A"/>
+    <arg name="start_node" default="H"/>
     <arg name="start_exit_arm" default="1"/>
     <arg name="map_output" default="/tmp/duckie_city_map.json"/>
     <arg name="expected_gates" default="5"/>
@@ -41,10 +41,7 @@
         <param name="map_output" value="$(arg map_output)"/>
     </node>
 
-    <!-- Timing-Node: Misst Kantengewichte waehrend des Mappings.
-         Gewichte werden in SEPARATER Datei gespeichert
-         (duckie_city_map_weights.json), die Map-Datei bleibt
-         unangetastet. -->
+    <!-- Timing-Node: Misst Kantengewichte waehrend des Mappings -->
     <node name="timing_node" pkg="follow_lane" type="timing_node.py" output="screen">
         <param name="map_output" value="$(arg map_output)"/>
     </node>
